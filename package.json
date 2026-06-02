@@ -1,0 +1,14 @@
+{
+  "name": "shop-exe",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "client:dev": "npm run dev --workspace client",
+    "server:dev": "npm run start:dev --workspace server",
+    "install:all": "npm install --workspaces"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ]
+}
