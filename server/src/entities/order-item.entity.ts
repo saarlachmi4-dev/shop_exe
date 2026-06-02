@@ -5,18 +5,18 @@ import { Product } from './product.entity.js';
 @Entity('order_items')
 export class OrderItem {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @ManyToOne(() => Order, (order) => order.items, { onDelete: 'CASCADE' })
-  order: Order;
+  order!: Order;
 
   @ManyToOne(() => Product, (product) => product.orderItems, { onDelete: 'RESTRICT' })
-  product: Product;
+  product!: Product;
 
   @Column({ default: 1 })
-  quantity: number;
+  quantity!: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  priceAtPurchase: string;
+  priceAtPurchase!: string;
 }
 

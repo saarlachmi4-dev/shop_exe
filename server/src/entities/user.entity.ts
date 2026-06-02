@@ -1,46 +1,30 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import { CartItem } from './cart-item.entity.js';
-import { Order } from './order.entity.js';
-
-export enum UserRole {
-  User = 'user',
-  Admin = 'admin',
-}
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne, OneToMany } from 'typeorm';
+import { Cart } from './cart.entity';
+import { Order } from './order.entity';
 
 @Entity('users')
-export class User {
+export class User { // <-- ודא שכתוב בדיוק export class User
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number; 
 
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
   @Column()
-  password: string;
+  password!: string;
 
   @Column()
-  name: string;
+  name!: string;
 
-  @Column({
-    type: 'enum',
-    enum: UserRole,
-    default: UserRole.User,
-  })
-  role: UserRole;
+  @Column({ type: 'enum', enum: ['user', 'admin'], default: 'user' })
+  role!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
-  @OneToMany(() => CartItem, (cartItem) => cartItem.user)
-  cartItems: CartItem[];
+  @OneToOne(() => Cart, (cart) => cart.user)
+  cart!: Cart;
 
   @OneToMany(() => Order, (order) => order.user)
-  orders: Order[];
+  orders!: Order[];
 }
-

@@ -1,26 +1,18 @@
-import {
-  Column,
-  Entity,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-  Unique,
-} from 'typeorm';
-import { Product } from './product.entity.js';
-import { User } from './user.entity.js';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Cart } from './cart.entity'; // <-- השורה הזו כנראה חסרה לך!
+import { Product } from './product.entity';
 
 @Entity('cart_items')
-@Unique(['user', 'product'])
 export class CartItem {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
-  @ManyToOne(() => User, (user) => user.cartItems, { onDelete: 'CASCADE' })
-  user: User;
+  @ManyToOne(() => Cart, (cart) => cart.items, { onDelete: 'CASCADE' })
+  cart!: Cart;
 
-  @ManyToOne(() => Product, (product) => product.cartItems, { onDelete: 'CASCADE' })
-  product: Product;
+  @ManyToOne(() => Product)
+  product!: Product;
 
-  @Column({ default: 1 })
-  quantity: number;
+  @Column()
+  quantity!: number;
 }
-
