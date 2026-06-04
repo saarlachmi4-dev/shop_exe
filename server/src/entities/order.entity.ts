@@ -19,25 +19,25 @@ export enum OrderStatus {
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @ManyToOne(() => User, (user) => user.orders, { onDelete: 'CASCADE' })
-  user: User;
+  user!: User;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  totalPrice: string;
+  totalPrice!: string;
 
   @Column({
     type: 'enum',
     enum: OrderStatus,
     default: OrderStatus.Pending,
   })
-  status: OrderStatus;
+  status!: OrderStatus;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order)
-  items: OrderItem[];
+  items!: OrderItem[];
 }
 

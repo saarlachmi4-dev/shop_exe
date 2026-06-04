@@ -1,40 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { Product } from './product.js';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Product } from '../entities/product.entity';
 
 @Injectable()
 export class ProductsService {
-  private readonly products: Product[] = [
-    {
-      id: 1,
-      name: 'Everyday Backpack',
-      description: 'A practical backpack with room for a laptop, charger, and daily essentials.',
-      price: 189,
-      stock: 12,
-      imageUrl:
-        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 2,
-      name: 'Wireless Headphones',
-      description: 'Comfortable over-ear headphones with clean sound and long battery life.',
-      price: 329,
-      stock: 8,
-      imageUrl:
-        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 3,
-      name: 'Desk Lamp',
-      description: 'Minimal LED desk lamp with adjustable brightness for focused work.',
-      price: 119,
-      stock: 18,
-      imageUrl:
-        'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=80',
-    },
-  ];
+  // הזרקת ה-Repository של ישות המוצר
+  constructor(
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+  ) {}
 
-  findAll() {
-    return this.products;
+  // שליפת כל המוצרים (השתילים) ממסד הנתונים
+  async findAll(): Promise<Product[]> {
+    return await this.productRepository.find();
+  }
+
+  // שירות עזר (אופציונלי) למציאת שתיל ספציפי לפי מזהה
+  async findOne(id: number): Promise<Product | null> {
+    return await this.productRepository.findOneBy({ id });
   }
 }
-
