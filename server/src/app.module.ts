@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
-import { DatabaseModule } from './database/database.module.js';
-import { ProductsModule } from './products/products.module.js';
+import { DatabaseModule } from './database/database.module';
+import { ProductsModule } from './products/products.module';
+import { CartsModule } from './carts/carts.module'; // <-- ודא שהאימפורט הזה קיים
 
 @Module({
   imports: [
@@ -12,8 +11,7 @@ import { ProductsModule } from './products/products.module.js';
     }),
     DatabaseModule,
     ProductsModule,
+    CartsModule, // <-- ודא שהמודול רשום כאן!
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

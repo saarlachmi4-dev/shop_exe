@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne, OneToMany } from 'typeorm';
-import { Cart } from './cart.entity';
-import { Order } from './order.entity';
+import { Cart } from './cart.entity.js';
+import { Order } from './order.entity.js';
 
 @Entity('users')
 export class User { // <-- ודא שכתוב בדיוק export class User

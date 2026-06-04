@@ -3,12 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 // ייבוא כל הישויות שלך
-import { User } from '../entities/user.entity';
-import { Product } from '../entities/product.entity';
-import { Cart } from '../entities/cart.entity';
-import { CartItem } from '../entities/cart-item.entity';
-import { Order } from '../entities/order.entity';
-import { OrderItem } from '../entities/order-item.entity';
+import { User } from '../entities/user.entity.js';
+import { Product } from '../entities/product.entity.js';
+import { Cart } from '../entities/cart.entity.js';
+import { CartItem } from '../entities/cart-item.entity.js';
+import { Order } from '../entities/order.entity.js';
+import { OrderItem } from '../entities/order-item.entity.js';
 
 @Module({
   imports: [

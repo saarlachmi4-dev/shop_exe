@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
-import { OrderItem } from './order-item.entity'; // <-- ודא שהנתיב ל-OrderItem נכון
+import { OrderItem } from './order-item.entity.js'; // <-- ודא שהנתיב ל-OrderItem נכון
 
 @Entity('products')
 export class Product {
