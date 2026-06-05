@@ -101,51 +101,60 @@ export function ProductCard({ product, onAddToCartSuccess }: ProductCardProps) {
             variant="outlined"
           />
           
-          {/* בחירת כמות משולבת: כפתורים + הקלדה חופשית */}
+        {/* בחירת כמות משולבת: כפתורים + הקלדה חופשית גמישה */}
         {!isOutOfStock && (
         <Stack direction="row" alignItems="center" sx={{ bgcolor: '#f4f6f4', borderRadius: 2, p: 0.5 }}>
             {/* כפתור מינוס */}
             <Button
             size="small"
-            onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-            disabled={quantity <= 1}
+            onClick={() => setQuantity((prev) => Math.max(1, Number(prev) - 1))}
+            disabled={Number(quantity) <= 1}
             sx={{ minWidth: 32, p: 0.5, fontWeight: 'bold', color: '#2e7d32' }}
             >
             -
             </Button>
             
-            {/* שדה הקלדה חופשית */}
+            {/* שדה הקלדה חופשית גמיש - מאפשר מחיקה זמנית */}
             <input
-            type="number"
-            value={quantity}
-            onChange={(e) => {
-                const val = Number(e.target.value);
-                // אם המשתמש מחק הכל, נשאיר זמנית ריק או 1 כדי שלא יתרסק
-                if (val === 0) {
-                setQuantity(1);
-                return;
-                }
-                // הגנה: שלא יקלידו יותר מהמלאי הקיים ושלא ירדו מ-1
-                const validatedVal = Math.max(1, Math.min(product.stock, val));
-                setQuantity(validatedVal);
-            }}
-            style={{
-                width: '45px',
-                textAlign: 'center',
-                border: 'none',
-                background: 'transparent',
-                fontSize: '1rem',
-                fontWeight: 600,
-                outline: 'none',
-                appearance: 'textfield', // מעלים את החצים הדיפולטיביים של הדפדפן
-            }}
+                type="number"
+                min="1" // <-- חוסם את החץ המובן של הדפדפן מלרדת מתחת ל-1
+                max={product.stock} // <-- חוסם את החץ המובנה של הדפדפן מלעבור את המלאי
+                value={quantity === 0 ? '' : quantity}
+                onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                    setQuantity(0);
+                    return;
+                    }
+                    const numVal = Number(val);
+                    if (numVal <= product.stock) {
+                    setQuantity(numVal);
+                    } else {
+                    setQuantity(product.stock);
+                    }
+                }}
+                onBlur={() => {
+                    if (quantity < 1) {
+                    setQuantity(1);
+                    }
+                }}
+                style={{
+                    width: '55px', // הגדלתי מעט ל-55px כדי שיהיה מקום גם למספר וגם לחצים בצד
+                    textAlign: 'center',
+                    border: 'none',
+                    background: 'transparent',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    outline: 'none',
+                    // מחקנו את ה-Appearance כדי שהחצים יחזרו להופיע!
+                }}
             />
 
             {/* כפתור פלוס */}
             <Button
             size="small"
-            onClick={() => setQuantity((prev) => Math.min(product.stock, prev + 1))}
-            disabled={quantity >= product.stock}
+            onClick={() => setQuantity((prev) => Math.min(product.stock, Number(prev) + 1))}
+            disabled={Number(quantity) >= product.stock}
             sx={{ minWidth: 32, p: 0.5, fontWeight: 'bold', color: '#2e7d32' }}
             >
             +
