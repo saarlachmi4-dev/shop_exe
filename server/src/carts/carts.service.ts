@@ -81,4 +81,62 @@ export class CartsService {
   async getCart(userId: number) {
     return this.getOrCreateCart(userId);
   }
+
+  // עדכון כמות של פריט ספציפי מתוך העגלה (בזמן אמת)
+    async updateItemQuantity(userId: number, cartItemId: number, newQuantity: number) {
+    if (newQuantity <= 0) {
+        throw new BadRequestException('הכמות חייבת להיות לפחות 1. בשביל להסיר, השתמש במחיקה.');
+    }
+
+    // 1. שליפת פריט העגלה יחד עם המוצר המשויך אליו
+    const cartItem = await this.cartItemRepository.findOne({
+        where: { id: cartItemId, cart: { user: { id: userId } } },
+        relations: ['product', 'cart'],
+    });
+
+    if (!cartItem) {
+        throw new NotFoundException('הפריט לא נמצא בעגלה של המשתמש');
+    }
+
+    const product = cartItem.product;
+    // חישוב ההפרש: כמה המשתמש מוסיף או מוריד ביחס למה שכבר היה לו בעגלה
+    const quantityDifference = newQuantity - cartItem.quantity;
+
+    // 2. אם המשתמש מבקש להגדיל כמות, נבדוק שיש מספיק במלאי של המשתלה
+    if (quantityDifference > 0 && product.stock < quantityDifference) {
+        throw new BadRequestException(`אין מספיק מלאי. נותרו רק ${product.stock} יחידות זמינות`);
+    }
+
+    // 3. עדכון המלאי של המוצר בבסיס הנתונים (החזרה או גריעה)
+    product.stock -= quantityDifference;
+    await this.productRepository.save(product);
+
+    // 4. עדכון הכמות בפריט העגלה
+    cartItem.quantity = newQuantity;
+    await this.cartItemRepository.save(cartItem);
+
+    return this.getOrCreateCart(userId);
+    }
+
+    // הסרת פריט לחלוטין מהעגלה והחזרת המלאי שלו למשתלה
+    async removeItemFromCart(userId: number, cartItemId: number) {
+    const cartItem = await this.cartItemRepository.findOne({
+        where: { id: cartItemId, cart: { user: { id: userId } } },
+        relations: ['product'],
+    });
+
+    if (!cartItem) {
+        throw new NotFoundException('הפריט לא נמצא בעגלה');
+    }
+
+    // החזרת המלאי של הפריט שנמחק חזרה למוצר
+    const product = cartItem.product;
+    product.stock += cartItem.quantity;
+    await this.productRepository.save(product);
+
+    // מחיקת הפריט מהעגלה
+    await this.cartItemRepository.remove(cartItem);
+
+    return this.getOrCreateCart(userId);
+    }
 }
