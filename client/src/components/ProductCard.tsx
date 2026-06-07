@@ -21,6 +21,7 @@ export type Product = {
   price: number;
   stock: number;
   imageUrl: string;
+  season?: string;
 };
 
 type ProductCardProps = {

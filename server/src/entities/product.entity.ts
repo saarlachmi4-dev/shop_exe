@@ -21,6 +21,9 @@ export class Product {
   @Column()
   imageUrl!: string;
 
+  @Column({ type: 'varchar', nullable: true, default: 'רב-עונתי' })
+  season!: string;
+
   @CreateDateColumn()
   createdAt!: Date;
 
