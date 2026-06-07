@@ -3,9 +3,10 @@ import { ShoppingCart, Sprout } from 'lucide-react';
 
 type HeaderProps = {
   cartItemsCount: number; // מקבל את כמות הפריטים הכוללת
+  onCartClick: () => void; // פונקציה שתופעל בלחיצה על כפתור העגלה
 };
 
-export function Header({ cartItemsCount }: HeaderProps) {
+export function Header({ cartItemsCount, onCartClick }: HeaderProps) {
   return (
     <AppBar position="sticky" color="inherit" elevation={1} sx={{ bgcolor: '#ffffff' }}>
       <Container maxWidth="lg">
@@ -18,6 +19,7 @@ export function Header({ cartItemsCount }: HeaderProps) {
           </Stack>
           
           <Button 
+            onClick={onCartClick} 
             variant="outlined" 
             color="success" 
             startIcon={
