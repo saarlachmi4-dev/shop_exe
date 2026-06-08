@@ -213,4 +213,4 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
       )}
     </Container>
   );
-}
+} 
