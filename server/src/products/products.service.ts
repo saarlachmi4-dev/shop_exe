@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Product } from '../entities/product.entity';
+import { Product } from '../entities/product.entity.js';
 
 @Injectable()
 export class ProductsService {
@@ -12,8 +12,12 @@ export class ProductsService {
   ) {}
 
   // שליפת כל המוצרים (השתילים) ממסד הנתונים
-  async findAll(): Promise<Product[]> {
-    return await this.productRepository.find();
+  async findAll() {
+    return this.productRepository.find({
+      order: {
+        id: 'ASC', // ASC אומר מיון עולה - מה-ID הנמוך לגבוה
+      },
+    });
   }
 
   // שירות עזר (אופציונלי) למציאת שתיל ספציפי לפי מזהה
