@@ -83,7 +83,14 @@ function App() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f7f9f6', pb: 8 }}>
-      <Header cartItemsCount={cartItemsCount} onCartClick={() => setView('cart')} />
+      <Header 
+        cartItemsCount={cartItemsCount} 
+        onCartClick={() => setView('cart')} 
+        onLogout={() => {
+          setUser(null);          // מחזיר את המשתמש למסך ההתחברות/הרשמה
+          setView('store');       // מאפס את התצוגה חזרה לדף החנות לפעם הבאה
+        }} 
+      />
 
       {view === 'cart' ? (
         <CartPage onBackToStore={() => setView('store')} onCartUpdated={handleRefreshAll} />
