@@ -1,36 +1,51 @@
-import { AppBar, Toolbar, Typography, Button, Badge, Container, Stack } from '@mui/material';
-import { ShoppingCart, Sprout } from 'lucide-react';
+import { AppBar, Button, Container, Stack, Toolbar, Typography } from '@mui/material';
+import { Sprout, LogOut } from 'lucide-react'; // מייבאים אייקון התנתקות נקי
 
 type HeaderProps = {
-  cartItemsCount: number; // מקבל את כמות הפריטים הכוללת
-  onCartClick: () => void; // פונקציה שתופעל בלחיצה על כפתור העגלה
+  cartItemsCount: number;
+  onCartClick: () => void;
+  onLogout: () => void; // <-- הפרופ החדש של ההתנתקות
 };
 
-export function Header({ cartItemsCount, onCartClick }: HeaderProps) {
+export function Header({ cartItemsCount, onCartClick, onLogout }: HeaderProps) {
   return (
     <AppBar position="sticky" color="inherit" elevation={1} sx={{ bgcolor: '#ffffff' }}>
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
+          
+          {/* לוגו ושם המשתלה */}
           <Stack direction="row" alignItems="center" spacing={1}>
             <Sprout color="#2e7d32" size={28} />
             <Typography variant="h5" component="h1" fontWeight={800} color="success.main" sx={{ mr: 2 }}>
               משתלת הנבט הירוק
             </Typography>
           </Stack>
-          
-          <Button 
-            onClick={onCartClick} 
-            variant="outlined" 
-            color="success" 
-            startIcon={
-              <Badge badgeContent={cartItemsCount} color="error">
-                <ShoppingCart size={20} />
-              </Badge>
-            }
-            sx={{ borderRadius: 2.5, px: 3, fontWeight: 600 }}
-          >
-            עגלת קניות
-          </Button>
+
+          {/* כפתורי הפעולות בצד שמאל */}
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            
+            {/* כפתור העגלה הקיים שלך */}
+            <Button 
+              onClick={onCartClick} 
+              variant="outlined" 
+              color="success"
+              sx={{ fontWeight: 600, borderRadius: 2 }}
+            >
+              עגלה ({cartItemsCount})
+            </Button>
+
+            {/* כפתור ההתנתקות החדש */}
+            <Button 
+              onClick={onLogout} 
+              variant="text" 
+              color="error"
+              startIcon={<LogOut size={16} />}
+              sx={{ fontWeight: 600, borderRadius: 2 }}
+            >
+              התנתק
+            </Button>
+
+          </Stack>
         </Toolbar>
       </Container>
     </AppBar>
