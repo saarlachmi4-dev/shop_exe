@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Box, Container, Card, TextField, Button, Typography, Stack, Tabs, Tab, Alert } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Box, Container, Card, TextField, Button, Typography, Stack, Tabs, Tab, Alert, Divider } from '@mui/material';
 import { Sprout } from 'lucide-react';
 import axios from 'axios';
 
@@ -19,6 +19,7 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // 1. פונקציית הגשת הטופס הרגיל
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -28,12 +29,11 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
       if (tabIndex === 0) {
         // --- תהליך התחברות ---
         const response = await axios.post('http://127.0.0.1:3000/auth/login', { email, password });
-        onAuthSuccess(response.data); // מעבירים את המשתמש שהתחבר ל-App.tsx
+        onAuthSuccess(response.data); 
       } else {
         // --- תהליך הרשמה ---
         await axios.post('http://127.0.0.1:3000/auth/register', { name, email, password });
         setSuccessMessage('נרשמת בהצלחה! מעביר אותך להתחברות...');
-        // מעבר אוטומטי לטאב התחברות אחרי 2 שניות
         setTimeout(() => {
           setTabIndex(0);
           setSuccessMessage('');
@@ -43,6 +43,34 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
       setError(err.response?.data?.message || 'התרחשה שגיאה בתקשורת עם השרת');
     }
   };
+
+  // 2. ה-useEffect של גוגל - יושב בצורה תקינה ישירות בגוף הקומפננטה!
+  useEffect(() => {
+    /* global google */
+    const handleGoogleCredentialResponse = async (response: any) => {
+      try {
+        const idToken = response.credential;
+        const backendResponse = await axios.post('http://127.0.0.1:3000/auth/google', {
+          token: idToken,
+        });
+        onAuthSuccess(backendResponse.data);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'התחברות עם גוגל נכשלה');
+      }
+    };
+
+    if ((window as any).google) {
+      (window as any).google.accounts.id.initialize({
+        client_id: "796592562943-gilp0qrs6g9sfeotifeaj5mqdta1dteq.apps.googleusercontent.com", 
+        callback: handleGoogleCredentialResponse,
+      });
+
+      (window as any).google.accounts.id.renderButton(
+        document.getElementById("googleBtn"),
+        { theme: "outline", size: "large", width: "100%", text: "signin_with" }
+      );
+    }
+  }, []);
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', bgcolor: '#f7f9f6', py: 4 }}>
@@ -69,8 +97,8 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
             indicatorColor="primary"
             sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
           >
-            <Tab label="התחברות" fontWeight={600} />
-            <Tab label="הרשמה לחנות" fontWeight={600} />
+            <Tab label="התחברות" sx={{ fontWeight: 600 }} />
+            <Tab label="הרשמה לחנות" sx={{ fontWeight: 600 }} />
           </Tabs>
 
           {/* הודעות שגיאה או הצלחה */}
@@ -123,6 +151,11 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
               </Button>
             </Stack>
           </form>
+
+          {/* 👇 המפריד והכפתור של גוגל במקומם הנכון מחוץ לטופס */}
+          <Divider sx={{ my: 3 }}>או</Divider>
+          <Box id="googleBtn" sx={{ display: 'flex', justifyContent: 'center' }} />
+
         </Card>
       </Container>
     </Box>
