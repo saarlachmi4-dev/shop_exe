@@ -1,21 +1,21 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../entities/user.entity'; 
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { User } from '../entities/user.entity';
+import { LoginDto } from './dto/login.dto'; //
 import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { OAuth2Client } from 'google-auth-library';
-
-const googleClient = new OAuth2Client('796592562943-gilp0qrs6g9sfeotifeaj5mqdta1dteq.apps.googleusercontent.com');
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private userRepository: Repository<User>,
+    private jwtService: JwtService,
   ) {}
 
-  // לוגיקת הרשמה (Register)
+  // --- 1. הרשמה עם הצפנת סיסמה ---
   async register(registerDto: RegisterDto) {
     const { email, password, name } = registerDto;
 
@@ -25,71 +25,80 @@ export class AuthService {
       throw new BadRequestException('כתובת האימייל הזו כבר רשומה במערכת');
     }
 
-    // יצירת המשתמש החדש (מומלץ בעתיד להוסיף כאן bcrypt להצפנת הסיסמה!)
-    const newUser = this.userRepository.create({
+    // הצפנת הסיסמה (Salt rounds = 10)
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = this.userRepository.create({
       name,
       email,
-      password, // נשמר זמנית כטקסט פשוט, בהמשך נצפין
+      password: hashedPassword,
       role: 'user',
     });
 
-    return this.userRepository.save(newUser);
+    await this.userRepository.save(user);
+    return { message: 'ההרשמה בוצעה בהצלחה' };
   }
 
-  // לוגיקת התחברות (Login)
+  // --- 2. התחברות והנפקת JWT ---
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
-    // חיפוש המשתמש לפי אימייל
+    // חיפוש המשתמש
     const user = await this.userRepository.findOneBy({ email });
     if (!user) {
-      throw new UnauthorizedException('אימייל או סיסמה אינם נכונים');
+      throw new UnauthorizedException('אימייל או סיסמה שגויים');
     }
 
-    // בדיקת סיסמה
-    if (user.password !== password) {
-      throw new UnauthorizedException('אימייל או סיסמה אינם נכונים');
+    // השוואת הסיסמה שהוזנה עם הסיסמה המוצפנת מה-DB
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+    if (!isPasswordMatch) {
+      throw new UnauthorizedException('אימייל או סיסמה שגויים');
     }
 
-    // החזרת פרטי המשתמש ל-Frontend (ללא הסיסמה מטעמי אבטחה)
-    const { password: _, ...result } = user;
+    // יצירת ה-JWT Payload
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const token = this.jwtService.sign(payload);
+
+    // החזרת הטוקן ופרטי המשתמש (ללא הסיסמה)
+    return {
+      access_token: token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  // --- 3. שליפת פרופיל לפי טוקן (בשביל ה-"זכור אותי" בטעינת האתר) ---
+  async getProfile(userId: number) {
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('משתמש לא נמצא');
+    }
+    const { password, ...result } = user;
     return result;
   }
 
-  async googleLogin(token: string) {
-    try {
-      // 1. מאמתים את הטוקן ישירות מול השרתים של גוגל
-      const ticket = await googleClient.verifyIdToken({
-        idToken: token,
-        audience: '796592562943-gilp0qrs6g9sfeotifeaj5mqdta1dteq.apps.googleusercontent.com',
-      });
-
-      const payload = ticket.getPayload();
-      if (!payload) {
-        throw new BadRequestException('טוקן גוגל לא תקין');
-      }
-
-      const { email, name, sub: googleId } = payload;
-
-      // 2. בודקים אם המשתמש כבר קיים אצלנו במסד הנתונים לפי האימייל
-      let user = await this.userRepository.findOneBy({ email });
-
-      // 3. אם הוא לא קיים - יוצרים לו משתמש חדש אוטומטית (הרשמה שקופה!)
-      if (!user) {
-        user = this.userRepository.create({
-          email,
-          name: name || 'משתמש גוגל',
-          password: `google_${googleId}`, // סיסמת רפאים מכיוון שהוא מתחבר רק דרך גוגל
-          role: 'user',
-        });
-        await this.userRepository.save(user);
-      }
-
-      // 4. מחזירים את פרטי המשתמש ללא הסיסמה
-      const { password: _, ...result } = user;
-      return result;
-    } catch (error) {
-      throw new UnauthorizedException('אימות מול גוגל נכשל');
+  // --- 4. עדכון פרופיל (שם / אימייל) ---
+  async updateProfile(userId: number, updateData: { name?: string; email?: string }) {
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('משתמש לא נמצא');
     }
+
+    if (updateData.name) user.name = updateData.name;
+    if (updateData.email) {
+      const existingUser = await this.userRepository.findOneBy({ email: updateData.email });
+      if (existingUser && existingUser.id !== userId) {
+        throw new BadRequestException('האימייל הזה כבר בשימוש על ידי משתמש אחר');
+      }
+      user.email = updateData.email;
+    }
+
+    await this.userRepository.save(user);
+    const { password, ...result } = user;
+    return result;
   }
 }

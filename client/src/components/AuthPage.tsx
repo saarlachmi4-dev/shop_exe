@@ -4,7 +4,7 @@ import { Sprout } from 'lucide-react';
 import axios from 'axios';
 
 type AuthPageProps = {
-  onAuthSuccess: (user: { id: number; name: string; email: string }) => void;
+  onAuthSuccess: (authData: { access_token: string; user: { id: number; name: string; email: string } }) => void;
 };
 
 export function AuthPage({ onAuthSuccess }: AuthPageProps) {

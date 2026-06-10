@@ -4,23 +4,49 @@ import axios from 'axios';
 import { Header } from './components/Header';
 import { Product, ProductCard } from './components/ProductCard';
 import { CartPage } from './components/CartPage';
-import { AuthPage } from './components/AuthPage'; // <-- אימפורט לדף הכניסה החדש
+import { AuthPage } from './components/AuthPage';
 
 type UserState = { id: number; name: string; email: string } | null;
 
 function App() {
-  // סטייט המשתמש המחובר - מתחיל כ-null
   const [user, setUser] = useState<UserState>(null);
   const [view, setView] = useState<'store' | 'cart'>('store');
   const [products, setProducts] = useState<Product[]>([]);
   const [cartItemsCount, setCartItemsCount] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // סטייט טעינה התחלתי לבדיקת הסטטוס
   const [error, setError] = useState('');
 
   // פילטרים קיימים
   const [searchQuery, setSearchQuery] = useState('');
   const [seasonFilter, setSeasonFilter] = useState('all');
   const [sortBy, setSortBy] = useState('default');
+
+  // --- 1. אפקט "זכור אותי" - רץ פעם אחת מיד עם פתיחת האתר בדפדפן ---
+  useEffect(() => {
+    async function checkPersistedUser() {
+      const token = localStorage.getItem('access_token');
+      
+      if (token) {
+        try {
+          // הגדרת הטוקן כברירת מחדל לכל בקשות ה-axios הבאות
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          
+          // בקשת פרטי הפרופיל של המשתמש מה-Endpoint הייעודי
+          const response = await axios.get('http://127.0.0.1:3000/auth/me');
+          
+          // אם הטוקן תקין, המשתמש נשאר מחובר אוטומטית!
+          setUser(response.data);
+        } catch (err) {
+          console.error('הטוקן פג תוקף או שאינו תקין, מנקים את ה-Storage');
+          localStorage.removeItem('access_token');
+          delete axios.defaults.headers.common['Authorization'];
+        }
+      }
+      setIsLoading(false); // מסיימים את הבדיקה ההתחלתית
+    }
+    
+    void checkPersistedUser();
+  }, []);
 
   // טעינת מוצרים מהשרת
   async function loadProducts() {
@@ -43,7 +69,7 @@ function App() {
     }
   }
 
-  // אנחנו רוצים לטעון את הנתונים רק אחרי שהמשתמש ביצע התחברות מוצלחת
+  // טעינת נתונים רק אחרי שהמשתמש מחובר (או שוחזר בהצלחה)
   useEffect(() => {
     if (user) {
       async function initData() {
@@ -53,17 +79,27 @@ function App() {
       }
       void initData();
     }
-  }, [user]); // ירוץ מחדש ברגע שהמשתמש משתנה
+  }, [user]);
 
   const handleRefreshAll = async () => {
     await Promise.all([loadProducts(), loadCart()]);
   };
 
-  const handleAuthSuccess = (loggedInUser: { id: number; name: string; email: string }) => {
-    setUser(loggedInUser); // שמירת המשתמש בסטייט ופתיחת האתר
+  // --- 2. טיפול בהתחברות מוצלחת (גוגל או טופס רגיל) שמחזירה { access_token, user } ---
+  const handleAuthSuccess = (authResponse: any) => {
+    // שליפת הטוקן ונתוני המשתמש מתוך מבנה התשובה של השרת
+    const { access_token, user: loggedInUser } = authResponse;
+
+    // שמירת הטוקן בדפדפן בשביל ה-"זכור אותי" לפעמים הבאות
+    localStorage.setItem('access_token', access_token);
+    
+    // הזרקת הטוקן לכל הבקשות הבאות של axios
+    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+
+    setUser(loggedInUser); // מעדכן את הסטייט ופותח את האתר
   };
 
-  // מנוע הסינון הקיים שלך...
+  // מנוע הסינון הקיים...
   const filteredAndSortedProducts = products
     .filter((product) => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -76,6 +112,16 @@ function App() {
       return 0;
     });
 
+  // מסך ביניים בזמן שהאפליקציה בודקת מול השרת אם המשתמש כבר מחובר (מונע "קפיצה" של מסך הלוגין)
+  if (isLoading && !user) {
+    return (
+      <Stack alignItems="center" justifyContent="center" sx={{ minHeight: '100vh', bgcolor: '#f7f9f6' }}>
+        <CircularProgress color="success" size={50} />
+        <Typography sx={{ mt: 2 }} color="text.secondary" fontWeight={500}>מתחבר לחממה...</Typography>
+      </Stack>
+    );
+  }
+
   // --- הגנת כניסה: אם המשתמש לא מחובר, מראים רק את דף הכניסה ---
   if (!user) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
@@ -86,9 +132,12 @@ function App() {
       <Header 
         cartItemsCount={cartItemsCount} 
         onCartClick={() => setView('cart')} 
+        // --- 3. התנתקות מכוונת וניקוי ה-Storage לחלוטין ---
         onLogout={() => {
-          setUser(null);          // מחזיר את המשתמש למסך ההתחברות/הרשמה
-          setView('store');       // מאפס את התצוגה חזרה לדף החנות לפעם הבאה
+          localStorage.removeItem('access_token');            // מוחק את הזיכרון מהדפדפן
+          delete axios.defaults.headers.common['Authorization']; // מסיר את ה-Token מ-axios
+          setUser(null);                                      // מחזיר למסך הכניסה
+          setView('store');                                   // מאפס תצוגה
         }} 
       />
 
@@ -96,7 +145,8 @@ function App() {
         <CartPage onBackToStore={() => setView('store')} onCartUpdated={handleRefreshAll} />
       ) : (
         <Container maxWidth="lg" sx={{ mt: 5 }}>
-          {/* כל קוד הקטלוג והפילטרים הקיים והמעולה שלך נשאר כאן בדיוק אותו דבר */}
+          {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
+          
           <Stack spacing={1} sx={{ mb: 4 }}>
             <Typography variant="h4" component="h2" fontWeight={850} color="#1b3a24">
               שלום, {user.name} 🌿
@@ -106,9 +156,7 @@ function App() {
             </Typography>
           </Stack>
 
-          {/* שורת הפילטרים ורשת ה-Grid של המוצרים ממשיכים מכאן... */}
-          <Grid container spacing={2} sx={{ mb: 4, bgcolor: '#ffffff', p: 2, borderRadius: 3 }}>
-            {/* פקדי הסינון שלך */}
+          <Grid container spacing={2} sx={{ mb: 4, bgcolor: '#ffffff', p: 2, borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
             <Grid item xs={12} sm={4}>
               <TextField fullWidth size="small" label="חפש שתיל..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </Grid>
