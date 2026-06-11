@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../entities/order.entity';
 import { OrderItem } from '../entities/order-item.entity';
-import { User } from '../entities/user.entity';
 import { Product } from '../entities/product.entity';
+import { User } from '../entities/user.entity';
 
 @Injectable()
 export class OrdersService {
@@ -13,20 +13,17 @@ export class OrdersService {
     @InjectRepository(Product) private productRepository: Repository<Product>,
   ) {}
 
-  // 1. יצירת הזמנה חדשה
   async createOrder(userId: number, itemsData: { productId: number; quantity: number }[]) {
     let totalPrice = 0;
     const orderItems: OrderItem[] = [];
 
     for (const item of itemsData) {
       const product = await this.productRepository.findOneBy({ id: item.productId });
-      if (!product) throw new NotFoundException(`מוצר עם מזהה ${item.productId} לא נמצא`);
-      
-      // חישוב מחיר
+      if (!product) throw new NotFoundException(`Product with id ${item.productId} was not found`);
+
       const itemPrice = Number(product.price) * item.quantity;
       totalPrice += itemPrice;
 
-      // יצירת פריט הזמנה
       const orderItem = new OrderItem();
       orderItem.product = product;
       orderItem.quantity = item.quantity;
@@ -43,21 +40,31 @@ export class OrdersService {
     return this.orderRepository.save(order);
   }
 
-  // 2. משיכת כל ההזמנות של משתמש ספציפי (כולל הפריטים שלהן)
   async getUserOrders(userId: number) {
     return this.orderRepository.find({
       where: { user: { id: userId } },
-      relations: ['items'],
-      order: { createdAt: 'DESC' }, // החדש ביותר למעלה
+      relations: ['items', 'items.product'],
+      order: { createdAt: 'DESC' },
     });
   }
 
-  // 3. עדכון סטטוס הזמנה (לשימוש עתידי או למנהל מערכת)
-  async updateStatus(orderId: number, status: 'בהכנה' | 'בדרך' | 'הגיעה') {
+  async updateStatus(orderId: number, status: string) {
     const order = await this.orderRepository.findOneBy({ id: orderId });
-    if (!order) throw new NotFoundException('ההזמנה לא נמצאה');
-    
+    if (!order) throw new NotFoundException('Order not found');
+
+    const allowedStatuses = ['בהכנה', 'בדרך', 'הגיעה'];
+    if (!allowedStatuses.includes(status)) {
+      throw new BadRequestException('Invalid order status');
+    }
+
     order.status = status;
     return this.orderRepository.save(order);
+  }
+
+  async findAllOrders() {
+    return this.orderRepository.find({
+      relations: ['user', 'items', 'items.product'],
+      order: { id: 'DESC' },
+    });
   }
 }

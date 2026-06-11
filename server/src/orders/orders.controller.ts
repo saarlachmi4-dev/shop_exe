@@ -1,6 +1,8 @@
-import { Controller, Post, Get, Put, Body, Headers, Param, UnauthorizedException } from '@nestjs/common';
-import { OrdersService } from './orders.service';
+import { Body, Controller, Get, Headers, Param, Patch, Post, Put, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { OrdersService } from './orders.service';
 
 @Controller('orders')
 export class OrdersController {
@@ -9,36 +11,46 @@ export class OrdersController {
     private readonly jwtService: JwtService,
   ) {}
 
-  // אנדפוינט ליצירת הזמנה
   @Post()
   async create(@Headers('authorization') authHeader: string, @Body() body: { items: { productId: number; quantity: number }[] }) {
     const userId = this.extractUserId(authHeader);
     return this.ordersService.createOrder(userId, body.items);
   }
 
-  // אנדפוינט למשיכת ההיסטוריה של המשתמש המחובר
   @Get('my-orders')
   async getMyOrders(@Headers('authorization') authHeader: string) {
     const userId = this.extractUserId(authHeader);
     return this.ordersService.getUserOrders(userId);
   }
 
-  // אנדפוינט לעדכון סטטוס (למשל: orders/5/status)
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getAllOrdersForAdmin() {
+    return this.ordersService.findAllOrders();
+  }
+
+  @Patch('admin/:id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  updateStatusForAdmin(@Param('id') id: string, @Body() body: { status: string }) {
+    return this.ordersService.updateStatus(Number(id), body.status);
+  }
+
   @Put(':id/status')
-  async updateStatus(@Param('id') id: number, @Body() body: { status: 'בהכנה' | 'בדרך' | 'הגיעה' }) {
-    return this.ordersService.updateStatus(id, body.status);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
+    return this.ordersService.updateStatus(Number(id), body.status);
   }
 
   private extractUserId(authHeader: string): number {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('חסר טוקן אימות');
+      throw new UnauthorizedException('Missing authentication token');
     }
     try {
       const token = authHeader.split(' ')[1];
       const decoded = this.jwtService.verify(token, { secret: 'SUPER_SECRET_KEY_123' });
       return decoded.sub;
     } catch {
-      throw new UnauthorizedException('טוקן לא תקין');
+      throw new UnauthorizedException('Invalid token');
     }
   }
 }

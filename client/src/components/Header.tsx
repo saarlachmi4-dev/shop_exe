@@ -1,21 +1,22 @@
 import { AppBar, Toolbar, Typography, Button, Badge, Stack, Container } from '@mui/material';
-import { ShoppingCart, LogOut, Sprout, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, LogOut, Sprout, ShoppingBag, ShieldAlert } from 'lucide-react';
 
 type HeaderProps = {
   cartItemsCount: number;
+  userRole?: string; // 👈 תמיכה בתפקיד משתמש
   onCartClick: () => void;
   onOrdersClick: () => void;
+  onAdminClick?: () => void; // 👈 פונקציה למעבר לעמוד ניהול
   onLogout: () => void;
 };
 
-export function Header({ cartItemsCount, onCartClick, onOrdersClick, onLogout }: HeaderProps) {
-
+export function Header({ cartItemsCount, userRole, onCartClick, onOrdersClick, onAdminClick, onLogout }: HeaderProps) {
   return (
     <AppBar position="sticky" sx={{ bgcolor: '#ffffff', color: '#1b3a24', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ display: 'flex', justifyContent: 'space-between', direction: 'rtl' }}>
           
-          {/* כפתורי הניווט והפעולות - ממוקמים כעת בצד ימין של הבר */}
+          {/* כפתורי הניווט והפעולות - ממוקמים בצד ימין של הבר */}
           <Stack direction="row" alignItems="center" spacing={2}>
 
             {/* כפתור התנתקות מהמערכת */}
@@ -35,13 +36,32 @@ export function Header({ cartItemsCount, onCartClick, onOrdersClick, onLogout }:
               יציאה
             </Button>
             
+            {/* 👑 כפתור פאנל ניהול אדמין - יוצג רק אם המשתמש הוא אדמין */}
+            {userRole === 'admin' && onAdminClick && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={onAdminClick}
+                startIcon={<ShieldAlert size={16} />}
+                sx={{
+                  borderRadius: 2.5,
+                  fontWeight: 'bold',
+                  px: 2.5,
+                  borderWidth: 2,
+                  '&:hover': { borderWidth: 2, bgcolor: '#fff5f5' }
+                }}
+              >
+                ניהול מערכת ⚙️
+              </Button>
+            )}
+
             {/* כפתור למעבר לעמוד ההזמנות המלא */}
-             <Button
+            <Button
               variant="contained"
               color="success"
               onClick={onOrdersClick}
               startIcon={
-                <Badge  color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 'bold' } }}>
+                <Badge color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 'bold' } }}>
                   <ShoppingBag size={18} />
                 </Badge>
               }

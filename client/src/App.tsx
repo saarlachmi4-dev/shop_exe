@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Box, CircularProgress, Container, Grid, Stack, Typography, TextField, MenuItem, FormControl, InputLabel, Select, Button } from '@mui/material';
+import { Box, CircularProgress, Container, Grid, Stack, Typography, TextField, MenuItem, FormControl, InputLabel, Select } from '@mui/material';
 import axios from 'axios';
 import { Header } from './components/Header';
-import { Product, ProductCard } from './components/ProductCard';
+import { ProductCard } from './components/ProductCard';
 import { CartPage } from './components/CartPage';
 import { AuthPage } from './components/AuthPage';
-import { OrdersPage } from './components/OrdersHistory'; // 👈 1. ייבוא עמוד ההזמנות החדש
+import { OrdersPage } from './components/OrdersHistory';
+import { AdminPage } from './components/AdminPage'; // 👈 1. ייבוא עמוד הניהול החדש
 
-type UserState = { id: number; name: string; email: string } | null;
+// 👈 2. עדכון הטיפוס שיתמוך בשדה התפקיד (role) המגיע מה-API
+type UserState = { id: number; name: string; email: string; role?: string } | null;
 
 function App() {
   const [user, setUser] = useState<UserState>(null);
-  // 👈 2. עדכון הסטייט שיתמוך גם בניווט לעמוד ההזמנות ('orders')
-  const [view, setView] = useState<'store' | 'cart' | 'orders'>('store');
-  const [products, setProducts] = useState<Product[]>([]);
+  // 👈 3. עדכון הסטייט שיתמוך גם בניווט לעמוד הניהול ('admin')
+  const [view, setView] = useState<'store' | 'cart' | 'orders' | 'admin'>('store');
+  const [products, setProducts] = useState<any[]>([]);
   const [cartItemsCount, setCartItemsCount] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,7 +28,7 @@ function App() {
   useEffect(() => {
     async function checkPersistedUser() {
       const token = localStorage.getItem('access_token');
-      
+
       if (token) {
         try {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -40,14 +42,14 @@ function App() {
       }
       setIsLoading(false);
     }
-    
+
     void checkPersistedUser();
   }, []);
 
   // טעינת מוצרים מהשרת
   async function loadProducts() {
     try {
-      const response = await axios.get<Product[]>('http://127.0.0.1:3000/products');
+      const response = await axios.get<any[]>('http://127.0.0.1:3000/products');
       setProducts(response.data);
     } catch {
       setError('שגיאה בתקשורת עם השרת בהבאת מוצרים.');
@@ -119,17 +121,27 @@ function App() {
   const renderView = () => {
     if (view === 'cart') {
       return (
-        <CartPage 
-          onBackToStore={() => setView('store')} 
-          onCartUpdated={handleRefreshAll} 
-          onOrderSuccess={() => setView('orders')} // 👈 3. העברת הפרופס החדש שינווט לעמוד ההזמנות לאחר Checkout מוצלח
+        <CartPage
+          onBackToStore={() => setView('store')}
+          onCartUpdated={handleRefreshAll}
+          onOrderSuccess={() => setView('orders')}
         />
       );
     }
-    
+
     if (view === 'orders') {
       return (
-        <OrdersPage onBackToStore={() => setView('store')} /> // 👈 4. הצגת עמוד ההזמנות החדש
+        <OrdersPage onBackToStore={() => setView('store')} />
+      );
+    }
+
+    // 👈 4. הוספת תצוגת עמוד הניהול עם העברת הסטטוסים וההרשאות הדרושות
+    if (view === 'admin') {
+      return (
+        <AdminPage
+          userRole={user?.role}
+          onBackToStore={() => setView('store')}
+        />
       );
     }
 
@@ -137,11 +149,11 @@ function App() {
     return (
       <Container maxWidth="lg" sx={{ mt: 5 }}>
         {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
-        
+
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ mb: 4 }} spacing={2}>
           <Stack spacing={1}>
             <Typography variant="h4" component="h2" fontWeight={850} color="#1b3a24">
-              שלום, {user.name} 🌿
+              שלום, {user.name} {user.role === 'admin' ? '👑 (מנהל)' : '🌿'}
             </Typography>
             <Typography variant="body1" color="text.secondary">
               השתילים האורגניים שלך מחכים לך בחממה
@@ -183,7 +195,13 @@ function App() {
           <Grid container spacing={4}>
             {filteredAndSortedProducts.map((product) => (
               <Grid key={product.id} item xs={12} sm={6} md={4}>
-                <ProductCard product={product} onAddToCartSuccess={handleRefreshAll} />
+                {/* 👈 5. העברת ה-userRole והפונקציה לרענון הקטלוג לאחר מחיקה מהירה בכרטיס המוצר */}
+                <ProductCard
+                  product={product}
+                  userRole={user?.role}
+                  onAddToCartSuccess={handleRefreshAll}
+                  onDeleteProductSuccess={handleRefreshAll}
+                />
               </Grid>
             ))}
           </Grid>
@@ -194,18 +212,21 @@ function App() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f7f9f6', pb: 8 }}>
-      <Header 
+      {/* 👈 6. עדכון ה-Header עם ה-Props החדשים שמאפשרים תמיכה בכניסה לפאנל האדמין */}
+      <Header
         cartItemsCount={cartItemsCount}
+        userRole={user?.role}
         onCartClick={() => setView('cart')}
+        onOrdersClick={() => setView('orders')}
+        onAdminClick={() => setView('admin')}
         onLogout={() => {
           localStorage.removeItem('access_token');
           delete axios.defaults.headers.common['Authorization'];
           setUser(null);
           setView('store');
-        }} 
-        onOrdersClick={() => setView('orders')} 
+        }}
       />
-      
+
       {renderView()}
     </Box>
   );
