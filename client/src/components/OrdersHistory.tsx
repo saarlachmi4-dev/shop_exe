@@ -32,14 +32,16 @@ type OrdersPageProps = {
 export function OrdersPage({ onBackToStore }: OrdersPageProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [sortBy, setSortBy] = useState('date_desc');
+  // 👈 סטייט חדש עבור סינון לפי סטטוס (all מציג את הכל)
+  const [statusFilter, setStatusFilter] = useState('all'); 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // משיכת ההזמנות מהשרת כולל ה-Token המתאים
+  // mשיכת ההזמנות מהשרת כולל ה-Token המתאים
   const fetchOrders = async () => {
     try {
       setError(null);
-      const token = localStorage.getItem('access_token'); // שימוש ב-access_token הנכון
+      const token = localStorage.getItem('access_token');
       
       const response = await axios.get('http://127.0.0.1:3000/orders/my-orders', {
         headers: {
@@ -57,22 +59,28 @@ export function OrdersPage({ onBackToStore }: OrdersPageProps) {
     void fetchOrders();
   }, []);
 
-  // לוגיקת המיון של ההזמנות
-  const getSortedOrders = () => {
-    const sorted = [...orders];
+  // 🚀 פונקציה משולבת המבצעת קודם פילטור לפי סטטוס ואז מיון (בזמן אמת)
+  const getFilteredAndSortedOrders = () => {
+    // 1. קודם כל מסננים לפי הסטטוס שנבחר
+    const filtered = orders.filter((order) => {
+      if (statusFilter === 'all') return true;
+      return order.status === statusFilter;
+    });
+
+    // 2. לאחר מכן ממיינים את התוצאות המסוננות
     if (sortBy === 'date_desc') {
-      return sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
     if (sortBy === 'date_asc') {
-      return sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      return filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     }
     if (sortBy === 'price_desc') {
-      return sorted.sort((a, b) => Number(b.totalPrice) - Number(a.totalPrice));
+      return filtered.sort((a, b) => Number(b.totalPrice) - Number(a.totalPrice));
     }
     if (sortBy === 'price_asc') {
-      return sorted.sort((a, b) => Number(a.totalPrice) - Number(b.totalPrice));
+      return filtered.sort((a, b) => Number(a.totalPrice) - Number(b.totalPrice));
     }
-    return sorted;
+    return filtered;
   };
 
   const getStatusChip = (status: Order['status']) => {
@@ -99,8 +107,8 @@ export function OrdersPage({ onBackToStore }: OrdersPageProps) {
       </Button>
 
       {/* כותרת ושורת פילטרים */}
-      <Grid container justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6}>
+      <Grid container spacing={2} justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
+        <Grid item xs={12} md={5}>
           <Typography variant="h4" fontWeight={850} color="#1b3a24">
             היסטוריית ההזמנות שלי 📦
           </Typography>
@@ -108,20 +116,42 @@ export function OrdersPage({ onBackToStore }: OrdersPageProps) {
             עקוב אחר סטטוס השתילים וההזמנות שביצעת במערכת
           </Typography>
         </Grid>
-        <Grid item xs={12} sm={4} sx={{ mt: { xs: 2, sm: 0 } }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>מיין לפי</InputLabel>
-            <Select 
-              value={sortBy} 
-              label="מיין לפי" 
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <MenuItem value="date_desc">תאריך: מהחדש לישן</MenuItem>
-              <MenuItem value="date_asc">תאריך: מהישן לחדש</MenuItem>
-              <MenuItem value="price_desc">מחיר: מהגבוה לנמוך</MenuItem>
-              <MenuItem value="price_asc">מחיר: מהנמוך לגבוה</MenuItem>
-            </Select>
-          </FormControl>
+        
+        {/* אזור הפילטרים והמיונים */}
+        <Grid item xs={12} md={7}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="flex-end">
+            
+            {/* 👈 הפילטר החדש: סינון לפי סטטוס */}
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>סינון לפי סטטוס</InputLabel>
+              <Select
+                value={statusFilter}
+                label="סינון לפי סטטוס"
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <MenuItem value="all">כל ההזמנות</MenuItem>
+                <MenuItem value="בהכנה">בהכנה 🧺</MenuItem>
+                <MenuItem value="בדרך">בדרך אליך 🚚</MenuItem>
+                <MenuItem value="הגיעה">הגיעה  🎉</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* פילטר המיון הקיים שלך */}
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>מיין לפי</InputLabel>
+              <Select 
+                value={sortBy} 
+                label="מיין לפי" 
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <MenuItem value="date_desc">תאריך: מהחדש לישן</MenuItem>
+                <MenuItem value="date_asc">תאריך: מהישן לחדש</MenuItem>
+                <MenuItem value="price_desc">מחיר: מהגבוה לנמוך</MenuItem>
+                <MenuItem value="price_asc">מחיר: מהנמוך לגבוה</MenuItem>
+              </Select>
+            </FormControl>
+
+          </Stack>
         </Grid>
       </Grid>
 
@@ -135,14 +165,16 @@ export function OrdersPage({ onBackToStore }: OrdersPageProps) {
 
       {/* רשימת ההזמנות */}
       <Stack spacing={2}>
-        {!error && getSortedOrders().length === 0 ? (
+        {!error && getFilteredAndSortedOrders().length === 0 ? (
           <Card sx={{ p: 4, borderRadius: 3, textAlign: 'center', bgcolor: '#ffffff' }}>
             <Typography variant="body1" color="text.secondary">
-              עדיין לא ביצעת אף הזמנה בחנות. כשהעגלה תהיה מלאה, לחץ על "בצע הזמנה"! 🌿
+              {statusFilter === 'all' 
+                ? 'עדיין לא ביצעת אף הזמנה בחנות. כשהעגלה תהיה מלאה, לחץ על "בצע הזמנה"! 🌿'
+                : `לא נמצאו הזמנות בסטטוס "${statusFilter}".`}
             </Typography>
           </Card>
         ) : (
-          getSortedOrders().map((order) => (
+          getFilteredAndSortedOrders().map((order) => (
             <Card 
               key={order.id} 
               sx={{ 
@@ -186,7 +218,7 @@ export function OrdersPage({ onBackToStore }: OrdersPageProps) {
         )}
       </Stack>
 
-      {/* חלון פרטי הזמנה (Modal) */}
+      {/* חלון פרטי הזמנה המקורי שלך (Modal) */}
       <Dialog 
         open={Boolean(selectedOrder)} 
         onClose={() => setSelectedOrder(null)} 
