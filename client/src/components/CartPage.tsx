@@ -6,13 +6,12 @@ import { useEffect, useState } from 'react';
 type CartPageProps = {
   onBackToStore: () => void;
   onCartUpdated: () => void;
+  onOrderSuccess: () => void; // פרופס המעבר לעמוד הזמנות
 };
 
-export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
+export function CartPage({ onBackToStore, onCartUpdated, onOrderSuccess }: CartPageProps) {
   const [cart, setCart] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // סטייט חדש לניהול המיון בתוך העגלה
   const [sortBy, setSortBy] = useState('default');
 
   const fetchCart = async () => {
@@ -58,25 +57,53 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
     return cart.items.reduce((sum: number, item: any) => sum + (Number(item.product.price) * item.quantity), 0);
   };
 
-  // --- מנגנון מיון פריטי העגלה בזמן אמת ---
+  // 🚀 פונקציית ביצוע הזמנה מעודכנת - מרוקנת עגלה ומעדכנת מלאי
+  const handleCheckout = async () => {
+    if (!cart || !cart.items || cart.items.length === 0) return;
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      // מיפוי הפריטים עבור ה-Backend
+      const itemsToOrder = cart.items.map((item: any) => ({
+        productId: item.product.id,
+        quantity: item.quantity
+      }));
+
+      // 1. שמירת ההזמנה ב-Backend
+      await axios.post('http://127.0.0.1:3000/orders', { items: itemsToOrder }, config);
+
+      // 2. ריקון העגלה באופן מיידי בפרונטאנד (חוויית משתמש חלקה)
+      setCart({ items: [] });
+
+      // 3. ניסיון ריקון העגלה גם בדאטהבייס בשרת
+      try {
+        await axios.delete('http://127.0.0.1:3000/cart/clear', config);
+      } catch (e) {
+        console.log("אנדפוינט /cart/clear חסר או שונה, ממשיך הלאה");
+      }
+
+      // 4. ריענון כל הנתונים ב-App.tsx (טוען מחדש מוצרים עם המלאי המעודכן ומאפס את המונה ב-Navbar)
+      await onCartUpdated();
+
+      // 5. העברה לעמוד ההזמנות
+      onOrderSuccess();
+    } catch (err: any) {
+      console.error('ביצוע ההזמנה נכשל', err);
+      alert(err.response?.data?.message || 'התרחשה שגיאה במהלך שמירת ההזמנה. נסה שנית.');
+    }
+  };
+
   const getSortedItems = () => {
     if (!cart || !cart.items) return [];
     
-    // יוצרים עותק של המערך כדי לא לעשות מוטציה ישירה לסטייט
     return [...cart.items].sort((a: any, b: any) => {
-      if (sortBy === 'price-asc') {
-        return Number(a.product.price) - Number(b.product.price); // מחיר מוצר מהנמוך לגבוה
-      }
-      if (sortBy === 'price-desc') {
-        return Number(b.product.price) - Number(a.product.price); // מחיר מוצר מהגבוה לנמוך
-      }
-      if (sortBy === 'name-asc') {
-        return a.product.name.localeCompare(b.product.name, 'he'); // מיון לפי א'-ב'
-      }
-      if (sortBy === 'qty-desc') {
-        return b.quantity - a.quantity; // לפי הכמות הכי גבוהה שהוזמנה בעגלה
-      }
-      return 0; // ברירת מחדל (לפי סדר ההוספה מהשרת)
+      if (sortBy === 'price-asc') return Number(a.product.price) - Number(b.product.price);
+      if (sortBy === 'price-desc') return Number(b.product.price) - Number(a.product.price);
+      if (sortBy === 'name-asc') return a.product.name.localeCompare(b.product.name, 'he');
+      if (sortBy === 'qty-desc') return b.quantity - a.quantity;
+      return 0;
     });
   };
 
@@ -86,9 +113,9 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
   const sortedItems = getSortedItems();
 
   return (
-    <Container maxWidth="md" sx={{ mt: 5, pb: 8 }}>
+    <Container maxWidth="md" sx={{ mt: 5, pb: 8, direction: 'rtl' }}>
       <Button 
-        startIcon={<ArrowLeft size={18} />} 
+        startIcon={<ArrowLeft size={18} style={{ marginLeft: 8 }} />} 
         onClick={onBackToStore}
         color="success"
         sx={{ mb: 3, fontWeight: 600 }}
@@ -97,7 +124,7 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
       </Button>
 
       <Typography variant="h4" fontWeight={850} color="#1b3a24" sx={{ mb: 4 }}>
-        עגלת הקניות שלך
+        עגלת הקניות שלך 🛒
       </Typography>
 
       {!hasItems ? (
@@ -113,7 +140,7 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
       ) : (
         <Stack spacing={3}>
           
-          {/* שורת כלי מיון ייעודית לעגלה */}
+          {/* שורת כלי מיון */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', bgcolor: '#ffffff', p: 1.5, borderRadius: 2, boxShadow: '0 2px 6px rgba(0,0,0,0.01)' }}>
             <FormControl size="small" sx={{ minWidth: 200 }}>
               <InputLabel>מיין פריטים בעגלה</InputLabel>
@@ -131,7 +158,7 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
             </FormControl>
           </Box>
 
-          {/* רשימת המוצרים הממוינת בעגלה */}
+          {/* רשימת המוצרים */}
           {sortedItems.map((item: any) => (
             <Card 
               key={item.id} 
@@ -141,7 +168,7 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
                 <img 
                   src={item.product.imageUrl} 
                   alt={item.product.name} 
-                  style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 8 }} 
+                  style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 8, marginLeft: 16 }} 
                 />
                 <Box>
                   <Typography variant="subtitle1" fontWeight={700}>
@@ -189,6 +216,7 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
 
           <Divider sx={{ my: 2 }} />
 
+          {/* סיכום הרכישה */}
           <Card sx={{ p: 3, borderRadius: 3, bgcolor: '#f1f5f0' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
               <Typography variant="h6" fontWeight={700} color="#1b3a24">
@@ -198,19 +226,20 @@ export function CartPage({ onBackToStore, onCartUpdated }: CartPageProps) {
                 ₪{calculateTotal().toFixed(2)}
               </Typography>
             </Stack>
+            
             <Button 
               fullWidth 
               variant="contained" 
               color="success" 
               size="large"
-              onClick={() => alert('ההזמנה בוצעה בהצלחה! השתילים בדרך אליך 🌿')}
+              onClick={handleCheckout}
               sx={{ borderRadius: 2.5, py: 1.5, fontWeight: 'bold', fontSize: '1.05rem' }}
             >
-              אישור והמשך לתשלום
+              בצע הזמנה עכשיו 🌿
             </Button>
           </Card>
         </Stack>
       )}
     </Container>
   );
-} 
+}
