@@ -41,7 +41,7 @@ export function Header({ cartItemsCount, onCartClick, onOrdersClick, onLogout }:
               color="success"
               onClick={onOrdersClick}
               startIcon={
-                <Badge badgeContent={cartItemsCount} color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 'bold' } }}>
+                <Badge  color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 'bold' } }}>
                   <ShoppingBag size={18} />
                 </Badge>
               }
