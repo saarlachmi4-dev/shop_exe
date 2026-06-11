@@ -1,5 +1,5 @@
 import { AppBar, Toolbar, Typography, Button, Badge, Stack, Container } from '@mui/material';
-import { ShoppingCart, LogOut, Sprout, ClipboardList } from 'lucide-react';
+import { ShoppingCart, LogOut, Sprout, ShoppingBag } from 'lucide-react';
 
 type HeaderProps = {
   cartItemsCount: number;
@@ -9,6 +9,7 @@ type HeaderProps = {
 };
 
 export function Header({ cartItemsCount, onCartClick, onOrdersClick, onLogout }: HeaderProps) {
+
   return (
     <AppBar position="sticky" sx={{ bgcolor: '#ffffff', color: '#1b3a24', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
       <Container maxWidth="lg">
@@ -16,14 +17,41 @@ export function Header({ cartItemsCount, onCartClick, onOrdersClick, onLogout }:
           
           {/* כפתורי הניווט והפעולות - ממוקמים כעת בצד ימין של הבר */}
           <Stack direction="row" alignItems="center" spacing={2}>
+
+            {/* כפתור התנתקות מהמערכת */}
+            <Button
+              variant="text"
+              color="error"
+              onClick={onLogout}
+              startIcon={<LogOut size={16} />}
+              sx={{ 
+                borderRadius: 2.5, 
+                fontWeight: 'bold',
+                px: 2.5,
+                boxShadow: '0 4px 12px rgba(75, 78, 121, 0.2)',
+                '&:hover': { bgcolor: '#e0dbdb' }
+              }}
+            >
+              יציאה
+            </Button>
             
             {/* כפתור למעבר לעמוד ההזמנות המלא */}
-            <Button 
-              variant="outlined" 
-              color="success" 
-              startIcon={<ClipboardList size={18} />} 
+             <Button
+              variant="contained"
+              color="success"
               onClick={onOrdersClick}
-              sx={{ borderRadius: 2, fontWeight: 'bold' }}
+              startIcon={
+                <Badge badgeContent={cartItemsCount} color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 'bold' } }}>
+                  <ShoppingBag size={18} />
+                </Badge>
+              }
+              sx={{ 
+                borderRadius: 2.5, 
+                fontWeight: 'bold',
+                px: 2.5,
+                boxShadow: '0 4px 12px rgba(46, 125, 50, 0.2)',
+                '&:hover': { bgcolor: '#1b5e20' }
+              }}
             >
               ההזמנות שלי
             </Button>
@@ -47,17 +75,6 @@ export function Header({ cartItemsCount, onCartClick, onOrdersClick, onLogout }:
               }}
             >
               העגלה שלי
-            </Button>
-
-            {/* כפתור התנתקות מהמערכת */}
-            <Button
-              variant="text"
-              color="error"
-              onClick={onLogout}
-              startIcon={<LogOut size={16} />}
-              sx={{ borderRadius: 2, fontWeight: 700 }}
-            >
-              יציאה
             </Button>
           </Stack>
 

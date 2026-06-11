@@ -147,16 +147,6 @@ function App() {
               השתילים האורגניים שלך מחכים לך בחממה
             </Typography>
           </Stack>
-          
-          {/* כפתור מהיר למעבר לעמוד ההזמנות ישירות מהחנות */}
-          <Button 
-            variant="outlined" 
-            color="success" 
-            onClick={() => setView('orders')}
-            sx={{ borderRadius: 2, fontWeight: 'bold' }}
-          >
-            📦 ההזמנות שלי
-          </Button>
         </Stack>
 
         {/* שורת הפילטרים והחיפוש */}
@@ -212,11 +202,10 @@ function App() {
           delete axios.defaults.headers.common['Authorization'];
           setUser(null);
           setView('store');
-        } } onOrdersClick={function (): void {
-          throw new Error('Function not implemented.');
-        } }      />
-
-      {/* רינדור התוכן הנבחר */}
+        }} 
+        onOrdersClick={() => setView('orders')} 
+      />
+      
       {renderView()}
     </Box>
   );
