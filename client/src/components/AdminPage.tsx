@@ -3,9 +3,9 @@ import {
   Container, Typography, Button, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Paper, IconButton, 
   Dialog, DialogTitle, DialogContent, TextField, DialogActions, 
-  Stack, Select, MenuItem, FormControl, Divider 
+  Stack, Select, MenuItem, FormControl, InputLabel, Divider, CircularProgress 
 } from '@mui/material';
-import { Delete, Plus, ClipboardList, Leaf } from 'lucide-react';
+import { Delete, Edit, Plus, ClipboardList, Leaf } from 'lucide-react';
 import axios from 'axios';
 
 interface AdminPageProps {
@@ -19,11 +19,15 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
   const [openModal, setOpenModal] = useState(false);
   
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [season, setSeason] = useState('');
   const [stock, setStock] = useState('');
+  const [description, setDescription] = useState(''); 
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState(''); 
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (userRole === 'admin') {
@@ -39,9 +43,6 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
           <Typography variant="h5" color="error" fontWeight="bold" gutterBottom>
             אין לך הרשאה מתאימה 🛑
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            עמוד זה מיועד למנהלי מערכת בלבד.
-          </Typography>
           <Button variant="contained" color="success" onClick={onBackToStore}>
             חזרה לחנות 🌿
           </Button>
@@ -51,8 +52,12 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
   }
 
   const loadProducts = async () => {
-    const res = await axios.get('http://127.0.0.1:3000/products');
-    setProducts(res.data);
+    try {
+      const res = await axios.get('http://127.0.0.1:3000/products');
+      setProducts(res.data);
+    } catch (err) {
+      console.error('שגיאה בטעינת מוצרים', err);
+    }
   };
 
   const loadOrders = async () => {
@@ -66,9 +71,37 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
 
   const handleDeleteProduct = async (id: number) => {
     if (window.confirm('האם למחוק מוצר זה?')) {
-      await axios.delete(`http://127.0.0.1:3000/products/${id}`);
-      loadProducts();
+      try {
+        await axios.delete(`http://127.0.0.1:3000/products/${id}`);
+        loadProducts();
+      } catch (err) {
+        console.error('שגיאה במחיקת מוצר', err);
+      }
     }
+  };
+
+  const handleOpenEditModal = (product: any) => {
+    setEditingProductId(product.id);
+    setName(product.name);
+    setPrice(product.price.toString());
+    setSeason(product.season || ''); 
+    setStock(product.stock.toString());
+    setDescription(product.description || '');
+    setCurrentImageUrl(product.image || ''); // שומרים את ה-URL הקיים של התמונה
+    setImageFile(null); 
+    setOpenModal(true);
+  };
+
+  const handleOpenCreateModal = () => {
+    setEditingProductId(null);
+    setName('');
+    setPrice('');
+    setSeason('');
+    setStock('');
+    setDescription('');
+    setCurrentImageUrl('');
+    setImageFile(null);
+    setOpenModal(true);
   };
 
   const handleStatusChange = async (orderId: number, newStatus: string) => {
@@ -81,29 +114,62 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
     }
   };
 
-  const handleCreateProduct = async (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('price', price);
-    formData.append('season', season);
-    formData.append('stock', stock);
-    if (imageFile) formData.append('image', imageFile);
+    setIsUploading(true);
 
-    await axios.post('http://127.0.0.1:3000/products', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    setOpenModal(false);
-    loadProducts();
+    try {
+      // 🟢 הגנת תמונה: ברירת המחדל היא הכתובת הקיימת של התמונה!
+      let imageUrl = currentImageUrl; 
+
+      // העלאה ל-Cloudinary תתבצע אך ורק אם המשתמש בחר קובץ חדש במודאל
+      if (imageFile) {
+        const cloudinaryForm = new FormData();
+        cloudinaryForm.append('file', imageFile);
+        cloudinaryForm.append('upload_preset', 'ml_default'); 
+        const cloudName = 'dvztvlbdd'; 
+
+        const cloudinaryResponse = await axios.post(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
+          cloudinaryForm,
+          { transformRequest: [(data) => data] } 
+        );
+
+        imageUrl = cloudinaryResponse.data.secure_url; 
+      }
+
+      const productPayload = {
+        name,
+        price: Number(price),
+        season,
+        stock: Number(stock),
+        description,
+        image: imageUrl // ישלח את התמונה החדשה או ישאיר את הישנה אם לא הועלתה חדשה
+      };
+
+      if (editingProductId) {
+        // ✨ תיקון ה-URL: מורידים נקודתיים מיותרות ומעבירים רק את ה-ID נקי מה-State
+        await axios.put(`http://127.0.0.1:3000/products/${editingProductId}`, productPayload);
+        alert('המוצר עודכן בהצלחה! 🎉');
+      } else {
+        await axios.post('http://127.0.0.1:3000/products', productPayload);
+        alert('המוצר נוצר בהצלחה! 🎉');
+      }
+      
+      setOpenModal(false);
+      loadProducts();
+    } catch (err) {
+      console.error('שגיאה בתהליך שמירת המוצר', err);
+      alert('הפעולה נכשלה, בדוק את נתוני השרת או ה-Console.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
     <Container maxWidth="lg" sx={{ mt: 5, direction: 'rtl' }}>
       <Typography variant="h4" fontWeight={850} color="#1b3a24" sx={{ mb: 1 }}>
         ניהול ובקרת חממה (אדמין) ⚙️
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        כאן תוכל לנהל את מלאי השתילים ולנטר הזמנות לקוחות בזמן אמת.
       </Typography>
 
       <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
@@ -121,7 +187,7 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
           startIcon={<ClipboardList size={18} />}
           onClick={() => setActiveTab('orders')}
         >
-          ניטור הזמנות לקוחות ({orders.length})
+          ניהול הזמנות לקוחות ({orders.length})
         </Button>
         <Button variant="outlined" onClick={onBackToStore} sx={{ marginRight: 'auto !important' }}>
           חזרה לחנות 🌿
@@ -132,7 +198,7 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
 
       {activeTab === 'products' && (
         <>
-          <Button variant="contained" color="primary" startIcon={<Plus size={18} />} onClick={() => setOpenModal(true)} sx={{ mb: 3 }}>
+          <Button variant="contained" color="primary" startIcon={<Plus size={18} />} onClick={handleOpenCreateModal} sx={{ mb: 3 }}>
             הוסף שתיל חדש לקטלוג
           </Button>
           <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
@@ -154,6 +220,9 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
                     <TableCell align="right">{product.season}</TableCell>
                     <TableCell align="right">{product.stock} יחידות</TableCell>
                     <TableCell align="center">
+                      <IconButton color="primary" onClick={() => handleOpenEditModal(product)} sx={{ ml: 1 }}>
+                        <Edit size={20} />
+                      </IconButton>
                       <IconButton color="error" onClick={() => handleDeleteProduct(product.id)}>
                         <Delete size={20} />
                       </IconButton>
@@ -166,6 +235,7 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
         </>
       )}
 
+      {/* טבלת הזמנות */}
       {activeTab === 'orders' && (
         <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
           <Table>
@@ -204,10 +274,7 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
                   </TableCell>
                   <TableCell align="center">
                     <FormControl size="small" sx={{ minWidth: 120 }}>
-                      <Select
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                      >
+                      <Select value={order.status} onChange={(e) => handleStatusChange(order.id, e.target.value)}>
                         <MenuItem value="בהכנה">בהכנה 📦</MenuItem>
                         <MenuItem value="בדרך">בדרך 🚚</MenuItem>
                         <MenuItem value="הגיעה">הגיעה ✅</MenuItem>
@@ -221,22 +288,62 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
         </TableContainer>
       )}
 
-      <Dialog open={openModal} onClose={() => setOpenModal(false)}>
-        <DialogTitle>הוספת מוצר חדש</DialogTitle>
-        <form onSubmit={handleCreateProduct}>
+      {/* מודאל יצירה ועריכה */}
+      <Dialog open={openModal} onClose={() => !isUploading && setOpenModal(false)}>
+        <DialogTitle>{editingProductId ? 'עריכת מוצר קיים ✍️' : 'הוספת מוצר חדש 🌿'}</DialogTitle>
+        <form onSubmit={handleSaveProduct}>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 350 }}>
-            <TextField label="שם השתיל" fullWidth required value={name} onChange={(e) => setName(e.target.value)} />
-            <TextField label="מחיר" type="number" fullWidth required value={price} onChange={(e) => setPrice(e.target.value)} />
-            <TextField label="עונה" fullWidth required value={season} onChange={(e) => setSeason(e.target.value)} />
-            <TextField label="מלאי ראשוני" type="number" fullWidth required value={stock} onChange={(e) => setStock(e.target.value)} />
-            <Button variant="outlined" component="label">
-              העלה תמונה
+            <TextField label="שם השתיל" fullWidth required disabled={isUploading} value={name} onChange={(e) => setName(e.target.value)} />
+            
+            <TextField 
+              label="תיאור השתיל" 
+              fullWidth 
+              multiline 
+              rows={3} 
+              disabled={isUploading} 
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)} 
+            />
+
+            <TextField label="מחיר" type="number" inputProps={{ step: "0.01" }} fullWidth required disabled={isUploading} value={price} onChange={(e) => setPrice(e.target.value)} />
+            
+            <FormControl fullWidth required disabled={isUploading}>
+              <InputLabel id="season-select-label">עונה</InputLabel>
+              <Select
+                labelId="season-select-label"
+                value={season}
+                label="עונה"
+                onChange={(e) => setSeason(e.target.value)}
+              >
+                {/* אופציות התואמות לסינון החנות הקיים */}
+                <MenuItem value="שתיל קיץ">שתיל קיץ ☀️</MenuItem>
+                <MenuItem value="שתיל חורף">שתיל חורף 🌧️</MenuItem>
+                <MenuItem value="רב-עונתי">רב-עונתי 🌿</MenuItem>
+                
+                {/* 🛠️ תואם לאזהרות MUI: תמיכה ותאימות לאחור בערכים הישנים של בסיס הנתונים שלך כדי למנוע קריסה */}
+                {season === "קיץ" && <MenuItem value="קיץ">קיץ (ערך ישן)</MenuItem>}
+                {season === "חורף" && <MenuItem value="חורף">חורף (ערך ישן)</MenuItem>}
+              </Select>
+            </FormControl>
+
+            <TextField label="מלאי" type="number" fullWidth required disabled={isUploading} value={stock} onChange={(e) => setStock(e.target.value)} />
+            
+            <Button variant="outlined" component="label" disabled={isUploading} color={imageFile ? "success" : "primary"}>
+              {imageFile ? `קובץ נבחר: ${imageFile.name.substring(0, 15)}...` : 'החלף תמונה קיימת'}
               <input type="file" hidden accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
             </Button>
+            
+            {editingProductId && currentImageUrl && !imageFile && (
+              <Typography variant="caption" color="text.secondary" align="center" sx={{ mt: 1 }}>
+                תמונת המוצר הנוכחית תישמר ללא שינוי 🖼️
+              </Typography>
+            )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenModal(false)}>ביטול</Button>
-            <Button type="submit" variant="contained" color="success">שמור</Button>
+            <Button onClick={() => setOpenModal(false)} disabled={isUploading}>ביטול</Button>
+            <Button type="submit" variant="contained" color="success" disabled={isUploading}>
+              {isUploading ? <CircularProgress size={24} color="inherit" /> : 'שמור'}
+            </Button>
           </DialogActions>
         </form>
       </Dialog>
