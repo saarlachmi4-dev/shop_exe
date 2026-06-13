@@ -19,7 +19,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  // 🍏 תהליך אימות משתמש גוגל - מתוקן ועובד ישירות מול ה-Repository!
+  // תהליך אימות משתמש גוגל -Repository!
   async validateGoogleUser(idToken: string) {
     try {
       // שלב א': אימות קשיח של הטוקן מול השרתים של גוגל

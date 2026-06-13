@@ -8,7 +8,7 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!user || user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('???? ?????: ?? ???? ????? ???? ???? ????? ??.');
+      throw new ForbiddenException('גישה נדחתה: אין לך הרשאות מתאימות לביצוע פעולה זו.');
     }
 
     return true;
