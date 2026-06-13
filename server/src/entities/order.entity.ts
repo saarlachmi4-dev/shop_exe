@@ -1,43 +1,24 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import { OrderItem } from './order-item.entity.js';
-import { User } from './user.entity.js';
-
-export enum OrderStatus {
-  Pending = 'pending',
-  Shipped = 'shipped',
-  Delivered = 'delivered',
-  Cancelled = 'cancelled',
-}
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany } from 'typeorm';
+import { User } from './user.entity';
+import { OrderItem } from './order-item.entity';
 
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn()
-  id: number;
-
-  @ManyToOne(() => User, (user) => user.orders, { onDelete: 'CASCADE' })
-  user: User;
+  id!: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  totalPrice: string;
+  totalPrice!: number;
 
-  @Column({
-    type: 'enum',
-    enum: OrderStatus,
-    default: OrderStatus.Pending,
-  })
-  status: OrderStatus;
+  @Column({ type: 'enum', enum: ['בהכנה', 'בדרך', 'הגיעה'], default: 'בהכנה' })
+  status!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
-  @OneToMany(() => OrderItem, (orderItem) => orderItem.order)
-  items: OrderItem[];
+  @ManyToOne(() => User, (user) => user.orders, { onDelete: 'CASCADE' })
+  user!: User;
+
+  @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
+  items!: OrderItem[];
 }
-

@@ -1,40 +1,105 @@
-import { Injectable } from '@nestjs/common';
-import { Product } from './product.js';
+﻿import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Product } from '../entities/product.entity.js';
 
 @Injectable()
 export class ProductsService {
-  private readonly products: Product[] = [
-    {
-      id: 1,
-      name: 'Everyday Backpack',
-      description: 'A practical backpack with room for a laptop, charger, and daily essentials.',
-      price: 189,
-      stock: 12,
-      imageUrl:
-        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 2,
-      name: 'Wireless Headphones',
-      description: 'Comfortable over-ear headphones with clean sound and long battery life.',
-      price: 329,
-      stock: 8,
-      imageUrl:
-        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-      id: 3,
-      name: 'Desk Lamp',
-      description: 'Minimal LED desk lamp with adjustable brightness for focused work.',
-      price: 119,
-      stock: 18,
-      imageUrl:
-        'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=80',
-    },
-  ];
+  constructor(
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+  ) {}
 
-  findAll() {
-    return this.products;
+  async findAll() {
+    return this.productRepository.find({
+      where: { isActive: true },
+      order: { id: 'ASC' },
+    });
+  }
+
+  async findOne(id: number): Promise<Product | null> {
+    return this.productRepository.findOne({ where: { id, isActive: true } });
+  }
+
+  async create(createProductDto: any, file?: any) {
+    const price = Number(createProductDto.price);
+    const stock = Number(createProductDto.stock);
+
+    if (!createProductDto.name || Number.isNaN(price) || Number.isNaN(stock)) {
+      throw new BadRequestException('Missing or invalid product details');
+    }
+
+    const product = this.productRepository.create({
+      name: createProductDto.name,
+      description: createProductDto.description || '',
+      price,
+      stock,
+      season: createProductDto.season || 'רב-עונתי',
+      imageUrl: this.resolveImageUrl(file, createProductDto.imageUrl),
+      isActive: true,
+    });
+
+    return this.productRepository.save(product);
+  }
+
+  async delete(id: number) {
+    const product = await this.productRepository.findOneBy({ id });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    product.isActive = false;
+    product.stock = 0;
+    await this.productRepository.save(product);
+
+    return { message: 'Product removed from catalog' };
+  }
+
+  private resolveImageUrl(file?: any, imageUrl?: string) {
+    if (file?.buffer && file?.mimetype) {
+      return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    }
+
+    return imageUrl || 'https://res.cloudinary.com/dvztvlbdd/image/upload/v1781367971/photo-1416879595882-3373a0480b5b_rfamou.jpg';
+  }
+
+  async update(id: number, updateProductDto: any, file?: any) {
+    // 1. מציאת המוצר הקיים
+    const product = await this.productRepository.findOneBy({ id, isActive: true });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // 2. המרת מחיר ומלאי במידה ונשלחו
+    const price = updateProductDto.price !== undefined ? Number(updateProductDto.price) : product.price;
+    const stock = updateProductDto.stock !== undefined ? Number(updateProductDto.stock) : product.stock;
+
+    if (Number.isNaN(price) || Number.isNaN(stock)) {
+      throw new BadRequestException('Invalid price or stock values');
+    }
+
+    // 3. הגנת תמונה: אם הועלה קובץ חדש או נשלח קישור ישיר (imageUrl או image מה-React)
+    // אם לא נשלח כלום, נשמור על ה-imageUrl הקיים בבסיס הנתונים
+    let finalImageUrl = product.imageUrl;
+    
+    // בודק אם ה-React שלח כתובת קיימת במפתח image או imageUrl
+    const incomingUrl = updateProductDto.image || updateProductDto.imageUrl;
+
+    if (file) {
+      finalImageUrl = this.resolveImageUrl(file);
+    } else if (incomingUrl) {
+      finalImageUrl = incomingUrl;
+    }
+
+    // 4. עדכון השדות בפועל
+    product.name = updateProductDto.name || product.name;
+    product.description = updateProductDto.description !== undefined ? updateProductDto.description : product.description;
+    product.price = price;
+    product.stock = stock;
+    product.season = updateProductDto.season || product.season;
+    product.imageUrl = finalImageUrl;
+
+    // 5. שמירה בבסיס הנתונים
+    return this.productRepository.save(product);
   }
 }
-

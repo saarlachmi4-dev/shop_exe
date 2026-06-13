@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { CartItem } from '../entities/cart-item.entity.js';
-import { OrderItem } from '../entities/order-item.entity.js';
-import { Order } from '../entities/order.entity.js';
-import { Product } from '../entities/product.entity.js';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+
+// ייבוא כל הישויות שלך
 import { User } from '../entities/user.entity.js';
+import { Product } from '../entities/product.entity.js';
+import { Cart } from '../entities/cart.entity.js';
+import { CartItem } from '../entities/cart-item.entity.js';
+import { Order } from '../entities/order.entity.js';
+import { OrderItem } from '../entities/order-item.entity.js';
 
 @Module({
   imports: [
@@ -15,15 +18,17 @@ import { User } from '../entities/user.entity.js';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         host: configService.getOrThrow<string>('DB_HOST'),
-        port: Number(configService.getOrThrow<string>('DB_PORT')),
+        port: configService.getOrThrow<number>('DB_PORT'),
         username: configService.getOrThrow<string>('DB_USERNAME'),
         password: configService.getOrThrow<string>('DB_PASSWORD'),
         database: configService.getOrThrow<string>('DB_NAME'),
-        entities: [User, Product, CartItem, Order, OrderItem],
-        synchronize: true,
+        
+
+        entities: [User, Product, Cart, CartItem, Order, OrderItem],
+        
+        synchronize: true, // זמנית לפיתוח
       }),
     }),
   ],
 })
 export class DatabaseModule {}
-

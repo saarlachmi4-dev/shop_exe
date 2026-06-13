@@ -1,120 +1,244 @@
 import { useEffect, useState } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  CardMedia,
-  Chip,
-  CircularProgress,
-  Container,
-  Grid,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, CircularProgress, Container, Grid, Stack, Typography, TextField, MenuItem, FormControl, InputLabel, Select } from '@mui/material';
 import axios from 'axios';
-import { ShoppingCart } from 'lucide-react';
+import { Header } from './components/Header';
+import { ProductCard } from './components/ProductCard';
+import { CartPage } from './components/CartPage';
+import { AuthPage } from './components/AuthPage';
+import { OrdersPage } from './components/OrdersHistory';
+import { AdminPage } from './components/AdminPage'; 
 
-type Product = {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  stock: number;
-  imageUrl: string;
-};
+type UserState = { id: number; name: string; email: string; role?: string } | null;
 
 function App() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [user, setUser] = useState<UserState>(null);
+  const [view, setView] = useState<'store' | 'cart' | 'orders' | 'admin'>('store');
+  const [products, setProducts] = useState<any[]>([]);
+  const [cartItemsCount, setCartItemsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [seasonFilter, setSeasonFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('default');
+
+  // --- אפקט "זכור אותי" ---
   useEffect(() => {
-    async function loadProducts() {
-      try {
-        const response = await axios.get<Product[]>('http://127.0.0.1:3000/products');
-        setProducts(response.data);
-      } catch {
-        setError('Could not load products from the server.');
-      } finally {
-        setIsLoading(false);
+    async function checkPersistedUser() {
+      const token = localStorage.getItem('access_token');
+
+      if (token) {
+        try {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          const response = await axios.get('http://127.0.0.1:3000/auth/me');
+          setUser(response.data);
+        } catch (err) {
+          console.error('הטוקן פג תוקף או שאינו תקין, מנקים את ה-Storage');
+          localStorage.removeItem('access_token');
+          delete axios.defaults.headers.common['Authorization'];
+        }
       }
+      setIsLoading(false);
     }
 
-    void loadProducts();
+    void checkPersistedUser();
   }, []);
 
-  return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', color: '#1f2933' }}>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 6 }}>
-          <Typography variant="h5" component="h1" fontWeight={700}>
-            Shop Project
-          </Typography>
-          <Button variant="contained" startIcon={<ShoppingCart size={18} />}>
-            Cart
-          </Button>
-        </Stack>
+  // טעינת מוצרים מהשרת
+  async function loadProducts() {
+    try {
+      const response = await axios.get<any[]>('http://127.0.0.1:3000/products');
+      setProducts(response.data);
+    } catch {
+      setError('שגיאה בתקשורת עם השרת בהבאת מוצרים.');
+    }
+  }
 
-        <Stack spacing={1} sx={{ mb: 4 }}>
-          <Typography variant="h4" component="h2" fontWeight={800}>
-            Products
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            These products are coming from the NestJS API.
-          </Typography>
-        </Stack>
+  // טעינת העגלה
+  async function loadCart() {
+    try {
+      const response = await axios.get('http://127.0.0.1:3000/cart');
+      const totalItems = response.data.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      setCartItemsCount(totalItems);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
-        {isLoading && (
-          <Stack alignItems="center" sx={{ py: 8 }}>
-            <CircularProgress />
+  // 🟢 שינוי כאן: הפעלת הנתונים מחדש בכל פעם שהמשתמש מחובר או מחליף תצוגה חזרה לחנות
+  useEffect(() => {
+    if (user) {
+      async function initData() {
+        // מפעיל את הריענון רק אם המשתמש נמצא כרגע פיזית במסך החנות
+        if (view === 'store') {
+          setIsLoading(true);
+          await Promise.all([loadProducts(), loadCart()]);
+          setIsLoading(false);
+        }
+      }
+      void initData();
+    }
+  }, [user, view]); 
+
+  const handleRefreshAll = async () => {
+    await Promise.all([loadProducts(), loadCart()]);
+  };
+
+  // טיפול בהתחברות מוצלחת
+  const handleAuthSuccess = (authResponse: any) => {
+    const { access_token, user: loggedInUser } = authResponse;
+    localStorage.setItem('access_token', access_token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+    setUser(loggedInUser);
+  };
+
+  // מנוע הסינון והמיון המשולב - מאפשר חיפוש טקסטואלי גמיש וסינון עונות מתקדם
+  const filteredAndSortedProducts = products
+    .filter((product) => {
+      // 1. בדיקת חיפוש טקסטואלי
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // 2. בדיקת סינון עונות גמישה
+      if (seasonFilter === 'all') {
+        return matchesSearch; // אם נבחר "כל העונות", מספיק שהחיפוש יתאים
+      }
+
+      const productSeason = product.season || '';
+      
+      // בודק האם ערך העונה של המוצר שווה לבחירה, או מוכל בה (למשל "קיץ" מוכל בתוך "שתיל קיץ")
+      const matchesSeason = 
+        productSeason === seasonFilter || 
+        seasonFilter.includes(productSeason) ||
+        productSeason.includes(seasonFilter.replace('שתיל ', ''));
+
+      return matchesSearch && matchesSeason;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price-asc') return Number(a.price) - Number(b.price);
+      if (sortBy === 'price-desc') return Number(b.price) - Number(a.price);
+      return 0;
+    });
+
+  if (isLoading && !user) {
+    return (
+      <Stack alignItems="center" justifyContent="center" sx={{ minHeight: '100vh', bgcolor: '#f7f9f6' }}>
+        <CircularProgress color="success" size={50} />
+        <Typography sx={{ mt: 2 }} color="text.secondary" fontWeight={500}>מתחבר לחממה...</Typography>
+      </Stack>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  const renderView = () => {
+    if (view === 'cart') {
+      return (
+        <CartPage
+          onBackToStore={() => setView('store')}
+          onCartUpdated={handleRefreshAll}
+          onOrderSuccess={() => setView('orders')}
+        />
+      );
+    }
+
+    if (view === 'orders') {
+      return (
+        <OrdersPage onBackToStore={() => setView('store')} />
+      );
+    }
+
+    if (view === 'admin') {
+      return (
+        <AdminPage
+          userRole={user?.role}
+          onBackToStore={() => setView('store')}
+        />
+      );
+    }
+
+    return (
+      <Container maxWidth="lg" sx={{ mt: 5 }}>
+        {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
+
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ mb: 4 }} spacing={2}>
+          <Stack spacing={1}>
+            <Typography variant="h4" component="h2" fontWeight={850} color="#1b3a24">
+              שלום, {user.name} {user.role === 'admin' ? '👑 (מנהל)' : '🌿'}
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              השתילים האורגניים שלך מחכים לך בחממה
+            </Typography>
           </Stack>
-        )}
+        </Stack>
 
-        {error && (
-          <Typography color="error" sx={{ py: 4 }}>
-            {error}
-          </Typography>
-        )}
+        {/* שורת הפילטרים והחיפוש */}
+        <Grid container spacing={2} sx={{ mb: 4, bgcolor: '#ffffff', p: 2, borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <Grid item xs={12} sm={4}>
+            <TextField fullWidth size="small" label="חפש שתיל..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>סינון לפי עונה</InputLabel>
+              <Select label="סינון לפי עונה" value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value)}>
+                <MenuItem value="all">כל העונות</MenuItem>
+                {/* 🛠️ תיקון: התאמת הערכים לערכי המערכת החדשים לסינון תקין */}
+                <MenuItem value="שתיל קיץ">שתיל קיץ ☀️</MenuItem>
+                <MenuItem value="שתיל חורף">שתיל חורף 🌧️</MenuItem>
+                <MenuItem value="רב-עונתי">רב-עונתי 🌿</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>מיון מוצרים</InputLabel>
+              <Select label="מיון מוצרים" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <MenuItem value="default">ברירת מחדל</MenuItem>
+                <MenuItem value="price-asc">מחיר: מהנמוך לגבוה ↑</MenuItem>
+                <MenuItem value="price-desc">מחיר: מהגבוה לנמוך ↓</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
 
-        {!isLoading && !error && (
-          <Grid container spacing={3}>
-            {products.map((product) => (
+        {isLoading ? (
+          <Stack alignItems="center" justifyContent="center" sx={{ py: 12 }}><CircularProgress color="success" size={50} /></Stack>
+        ) : (
+          <Grid container spacing={4}>
+            {filteredAndSortedProducts.map((product) => (
               <Grid key={product.id} item xs={12} sm={6} md={4}>
-                <Card sx={{ height: '100%', borderRadius: 2 }}>
-                  <CardMedia
-                    component="img"
-                    height="220"
-                    image={product.imageUrl}
-                    alt={product.name}
-                    sx={{ objectFit: 'cover' }}
-                  />
-                  <CardContent>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}>
-                      <Typography variant="h6" component="h3" fontWeight={700}>
-                        {product.name}
-                      </Typography>
-                      <Chip label={`$${product.price}`} color="primary" size="small" />
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, minHeight: 60 }}>
-                      {product.description}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {product.stock} in stock
-                    </Typography>
-                  </CardContent>
-                  <CardActions sx={{ px: 2, pb: 2 }}>
-                    <Button fullWidth variant="contained" startIcon={<ShoppingCart size={18} />}>
-                      Add to cart
-                    </Button>
-                  </CardActions>
-                </Card>
+                <ProductCard
+                  product={product}
+                  userRole={user?.role}
+                  onAddToCartSuccess={handleRefreshAll}
+                  onDeleteProductSuccess={handleRefreshAll}
+                />
               </Grid>
             ))}
           </Grid>
         )}
       </Container>
+    );
+  };
+
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f7f9f6', pb: 8 }}>
+      <Header
+        cartItemsCount={cartItemsCount}
+        userRole={user?.role}
+        onCartClick={() => setView('cart')}
+        onOrdersClick={() => setView('orders')}
+        onAdminClick={() => setView('admin')}
+        onLogout={() => {
+          localStorage.removeItem('access_token');
+          delete axios.defaults.headers.common['Authorization'];
+          setUser(null);
+          setView('store');
+        }}
+      />
+
+      {renderView()}
     </Box>
   );
 }
