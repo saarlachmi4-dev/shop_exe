@@ -23,7 +23,7 @@ import { OrderItem } from '../entities/order-item.entity.js';
         password: configService.getOrThrow<string>('DB_PASSWORD'),
         database: configService.getOrThrow<string>('DB_NAME'),
         
-        // כאן הבעיה! ודא שכל הישויות נמצאות בתוך המערך הזה:
+
         entities: [User, Product, Cart, CartItem, Order, OrderItem],
         
         synchronize: true, // זמנית לפיתוח

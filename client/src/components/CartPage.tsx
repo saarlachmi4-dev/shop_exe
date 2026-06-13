@@ -57,7 +57,7 @@ export function CartPage({ onBackToStore, onCartUpdated, onOrderSuccess }: CartP
     return cart.items.reduce((sum: number, item: any) => sum + (Number(item.product.price) * item.quantity), 0);
   };
 
-  // 🚀 פונקציית ביצוע הזמנה מעודכנת - מרוקנת עגלה ומעדכנת מלאי
+  // פונקציית ביצוע הזמנה מעודכנת - מרוקנת עגלה ומעדכנת מלאי
   const handleCheckout = async () => {
     if (!cart || !cart.items || cart.items.length === 0) return;
 

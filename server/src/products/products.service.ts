@@ -60,7 +60,7 @@ export class ProductsService {
       return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
     }
 
-    return imageUrl || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80';
+    return imageUrl || 'https://res.cloudinary.com/dvztvlbdd/image/upload/v1781367971/photo-1416879595882-3373a0480b5b_rfamou.jpg';
   }
 
   async update(id: number, updateProductDto: any, file?: any) {

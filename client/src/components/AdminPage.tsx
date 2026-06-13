@@ -133,7 +133,6 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
           `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
           cloudinaryForm,
           { 
-            // 🔥 התיקון לבעיית ה-CORS: מחיקת ה-Authorization כדי ש-Cloudinary לא יחסום את הבקשה
             headers: {
               Authorization: undefined
             },
@@ -144,15 +143,15 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
         imageUrl = cloudinaryResponse.data.secure_url; 
       }
 
-      // 🛠️ התאמה בין ה-Frontend ל-Backend: שולחים גם image וגם imageUrl כדי שגם יצירה וגם עריכה יעבדו תקין
+      
       const productPayload = {
         name,
         price: Number(price),
         season,
         stock: Number(stock),
         description,
-        image: imageUrl,    // עבור העריכה
-        imageUrl: imageUrl  // עבור פונקציית ה-create ב-Backend
+        image: imageUrl,   
+        imageUrl: imageUrl  
       };
 
       if (editingProductId) {

@@ -25,9 +25,9 @@ export type Product = {
 
 type ProductCardProps = {
   product: Product;
-  userRole?: string; // 👈 תמיכה בתפקיד המשתמש
+  userRole?: string; 
   onAddToCartSuccess?: () => void;
-  onDeleteProductSuccess?: () => void; // 👈 פונקציה לרענון הרשימה אחרי מחיקה
+  onDeleteProductSuccess?: () => void;
 };
 
 export function ProductCard({ product, userRole, onAddToCartSuccess, onDeleteProductSuccess }: ProductCardProps) {
@@ -55,7 +55,7 @@ export function ProductCard({ product, userRole, onAddToCartSuccess, onDeletePro
     }
   };
 
-  // 👑 אפשרות מחיקה מהירה ישירות מהחנות עבור האדמין
+  //  אפשרות מחיקה מהירה ישירות מהחנות עבור האדמין
   const handleDeleteProduct = async () => {
     if (window.confirm(`האם אתה בטוח שברצונך למחוק את ${product.name} מהקטלוג?`)) {
       try {
@@ -86,7 +86,7 @@ export function ProductCard({ product, userRole, onAddToCartSuccess, onDeletePro
         }
       }}
     >
-      {/* 👑 אם המשתמש הוא מנהל, נציג לו כפתור מחיקה מהיר צף על המוצר */}
+      {/*  אם המשתמש הוא מנהל, נציג לו כפתור מחיקה מהיר צף על המוצר */}
       {userRole === 'admin' && (
         <IconButton
           color="error"

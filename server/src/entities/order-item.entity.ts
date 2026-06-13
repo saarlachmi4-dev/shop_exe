@@ -11,11 +11,11 @@ export class OrderItem {
   quantity!: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  priceAtOrder!: number; // שמירת המחיר בזמן ההזמנה
+  priceAtOrder!: number; 
 
   @ManyToOne(() => Order, (order) => order.items, { onDelete: 'CASCADE' })
   order!: Order;
 
-  @ManyToOne(() => Product, { eager: true }) // eager טוען אוטומטית את פרטי המוצר (שם, תמונה וכו')
+  @ManyToOne(() => Product, { eager: true }) 
   product!: Product;
 }
