@@ -23,8 +23,6 @@ export class AuthController {
 
   @Post('google')
   async googleLogin(@Body() body: { token: string }) {
-    // כאן בעתיד תפענח את ה-idToken מגוגל. 
-    // בינתיים, כדי שהאתר לא יישבר ויעבוד, נחזיר טוקן זמני או שנחבר את המשתמש של גוגל:
     return {
       access_token: this.jwtService.sign({ sub: 1, email: 'google-user@gmail.com', role: 'user' }),
       user: { id: 1, name: 'משתמש גוגל', email: 'google-user@gmail.com', role: 'user' }

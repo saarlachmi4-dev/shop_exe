@@ -3,10 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { User } from '../entities/user.entity';
-import { LoginDto } from './dto/login.dto'; //
+import { User, UserRole } from '../entities/user.entity';
+import { LoginDto } from './dto/login.dto'; 
 import { RegisterDto } from './dto/register.dto';
-import { UserRole } from '../entities/user.entity';
+import { OAuth2Client } from 'google-auth-library';
+
+// מאתחלים את הלקוח של גוגל עם ה-Client ID שלך
+const client = new OAuth2Client('796592562943-gilp0qrs6g9sfeotifeaj5mqdta1dteq.apps.googleusercontent.com');
 
 @Injectable()
 export class AuthService {
@@ -15,6 +18,61 @@ export class AuthService {
     private userRepository: Repository<User>,
     private jwtService: JwtService,
   ) {}
+
+  // 🍏 תהליך אימות משתמש גוגל - מתוקן ועובד ישירות מול ה-Repository!
+  async validateGoogleUser(idToken: string) {
+    try {
+      // שלב א': אימות קשיח של הטוקן מול השרתים של גוגל
+      const ticket = await client.verifyIdToken({
+        idToken: idToken,
+        audience: '796592562943-gilp0qrs6g9sfeotifeaj5mqdta1dteq.apps.googleusercontent.com',
+      });
+      
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new UnauthorizedException('טוקן גוגל לא תקין');
+      }
+
+      // חילוץ הפרטים האמיתיים של המשתמש מגוגל
+      const { email, name } = payload;
+      if (!email) {
+        throw new BadRequestException('לא התקבל אימייל מחשבון הגוגל');
+      }
+
+      // שלב ב': בדיקה במסד הנתונים (PostgreSQL / TypeORM) ישירות מול ה-Repository
+      let user = await this.userRepository.findOneBy({ email });
+
+      // אם המשתמש לא קיים בבסיס הנתונים שלנו - יוצרים ושומרים אותו אוטומטית!
+      if (!user) {
+        const newUser = this.userRepository.create({
+          email,
+          name: name || 'משתמש גוגל',
+          password: '', // משתמשי גוגל לא צריכים סיסמה מקומית
+          role: UserRole.USER, // שימוש ב-Enum הקיים אצלך ב-Entity
+        });
+        
+        user = await this.userRepository.save(newUser);
+      }
+
+      // שלב ג': הנפקת ה-access_token האמיתי של המערכת שלך
+      const jwtPayload = { sub: user.id, email: user.email, role: user.role };
+      
+      return {
+        access_token: this.jwtService.sign(jwtPayload),
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new UnauthorizedException('האימות מול גוגל נכשל או שהטוקן פג תוקף');
+    }
+  }
 
   // --- 1. הרשמה עם הצפנת סיסמה ---
   async register(registerDto: RegisterDto) {
@@ -50,6 +108,11 @@ export class AuthService {
       throw new UnauthorizedException('אימייל או סיסמה שגויים');
     }
 
+    // הגנה מפני מצב שמשתמש גוגל (ללא סיסמה) מנסה להתחבר דרך הטופס הרגיל
+    if (!user.password) {
+      throw new UnauthorizedException('חשבון זה מוגדר להתחברות עם גוגל בלבד');
+    }
+
     // השוואת הסיסמה שהוזנה עם הסיסמה המוצפנת מה-DB
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
@@ -60,7 +123,6 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const token = this.jwtService.sign(payload);
 
-    // החזרת הטוקן ופרטי המשתמש (ללא הסיסמה)
     return {
       access_token: token,
       user: {

@@ -3,10 +3,10 @@ import { ShoppingCart, LogOut, Sprout, ShoppingBag, ShieldAlert } from 'lucide-r
 
 type HeaderProps = {
   cartItemsCount: number;
-  userRole?: string; // 👈 תמיכה בתפקיד משתמש
+  userRole?: string; 
   onCartClick: () => void;
   onOrdersClick: () => void;
-  onAdminClick?: () => void; // 👈 פונקציה למעבר לעמוד ניהול
+  onAdminClick?: () => void; 
   onLogout: () => void;
 };
 
