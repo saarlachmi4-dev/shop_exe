@@ -87,7 +87,7 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
     setSeason(product.season || ''); 
     setStock(product.stock.toString());
     setDescription(product.description || '');
-    setCurrentImageUrl(product.image || ''); // שומרים את ה-URL הקיים של התמונה
+    setCurrentImageUrl(product.imageUrl || product.image || ''); 
     setImageFile(null); 
     setOpenModal(true);
   };
@@ -114,7 +114,7 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
     }
   };
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
+ const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUploading(true);
 
@@ -132,23 +132,30 @@ export function AdminPage({ onBackToStore, userRole }: AdminPageProps) {
         const cloudinaryResponse = await axios.post(
           `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
           cloudinaryForm,
-          { transformRequest: [(data) => data] } 
+          { 
+            // 🔥 התיקון לבעיית ה-CORS: מחיקת ה-Authorization כדי ש-Cloudinary לא יחסום את הבקשה
+            headers: {
+              Authorization: undefined
+            },
+            transformRequest: [(data) => data] 
+          } 
         );
 
         imageUrl = cloudinaryResponse.data.secure_url; 
       }
 
+      // 🛠️ התאמה בין ה-Frontend ל-Backend: שולחים גם image וגם imageUrl כדי שגם יצירה וגם עריכה יעבדו תקין
       const productPayload = {
         name,
         price: Number(price),
         season,
         stock: Number(stock),
         description,
-        image: imageUrl // ישלח את התמונה החדשה או ישאיר את הישנה אם לא הועלתה חדשה
+        image: imageUrl,    // עבור העריכה
+        imageUrl: imageUrl  // עבור פונקציית ה-create ב-Backend
       };
 
       if (editingProductId) {
-        // ✨ תיקון ה-URL: מורידים נקודתיים מיותרות ומעבירים רק את ה-ID נקי מה-State
         await axios.put(`http://127.0.0.1:3000/products/${editingProductId}`, productPayload);
         alert('המוצר עודכן בהצלחה! 🎉');
       } else {

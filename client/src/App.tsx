@@ -6,14 +6,12 @@ import { ProductCard } from './components/ProductCard';
 import { CartPage } from './components/CartPage';
 import { AuthPage } from './components/AuthPage';
 import { OrdersPage } from './components/OrdersHistory';
-import { AdminPage } from './components/AdminPage'; // 👈 1. ייבוא עמוד הניהול החדש
+import { AdminPage } from './components/AdminPage'; 
 
-// 👈 2. עדכון הטיפוס שיתמוך בשדה התפקיד (role) המגיע מה-API
 type UserState = { id: number; name: string; email: string; role?: string } | null;
 
 function App() {
   const [user, setUser] = useState<UserState>(null);
-  // 👈 3. עדכון הסטייט שיתמוך גם בניווט לעמוד הניהול ('admin')
   const [view, setView] = useState<'store' | 'cart' | 'orders' | 'admin'>('store');
   const [products, setProducts] = useState<any[]>([]);
   const [cartItemsCount, setCartItemsCount] = useState<number>(0);
@@ -67,17 +65,20 @@ function App() {
     }
   }
 
-  // טעינת נתונים רק אחרי שהמשתמש מחובר
+  // 🟢 שינוי כאן: הפעלת הנתונים מחדש בכל פעם שהמשתמש מחובר או מחליף תצוגה חזרה לחנות
   useEffect(() => {
     if (user) {
       async function initData() {
-        setIsLoading(true);
-        await Promise.all([loadProducts(), loadCart()]);
-        setIsLoading(false);
+        // מפעיל את הריענון רק אם המשתמש נמצא כרגע פיזית במסך החנות
+        if (view === 'store') {
+          setIsLoading(true);
+          await Promise.all([loadProducts(), loadCart()]);
+          setIsLoading(false);
+        }
       }
       void initData();
     }
-  }, [user]);
+  }, [user, view]); // 👈 הוספת view לפה גורמת ל-React להקשיב לכל שינוי מסך!
 
   const handleRefreshAll = async () => {
     await Promise.all([loadProducts(), loadCart()]);
@@ -117,7 +118,6 @@ function App() {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  // פונקציית עזר לרינדור התוכן הדינמי בהתאם לסטייט ה-view
   const renderView = () => {
     if (view === 'cart') {
       return (
@@ -135,7 +135,6 @@ function App() {
       );
     }
 
-    // 👈 4. הוספת תצוגת עמוד הניהול עם העברת הסטטוסים וההרשאות הדרושות
     if (view === 'admin') {
       return (
         <AdminPage
@@ -145,7 +144,6 @@ function App() {
       );
     }
 
-    // ברירת מחדל: תצוגת הקטלוג והחנות (view === 'store')
     return (
       <Container maxWidth="lg" sx={{ mt: 5 }}>
         {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
@@ -171,8 +169,9 @@ function App() {
               <InputLabel>סינון לפי עונה</InputLabel>
               <Select label="סינון לפי עונה" value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value)}>
                 <MenuItem value="all">כל העונות</MenuItem>
-                <MenuItem value="קיץ">שתיל קיץ ☀️</MenuItem>
-                <MenuItem value="חורף">שתיל חורף 🌧️</MenuItem>
+                {/* 🛠️ תיקון: התאמת הערכים לערכי המערכת החדשים לסינון תקין */}
+                <MenuItem value="שתיל קיץ">שתיל קיץ ☀️</MenuItem>
+                <MenuItem value="שתיל חורף">שתיל חורף 🌧️</MenuItem>
                 <MenuItem value="רב-עונתי">רב-עונתי 🌿</MenuItem>
               </Select>
             </FormControl>
@@ -195,7 +194,6 @@ function App() {
           <Grid container spacing={4}>
             {filteredAndSortedProducts.map((product) => (
               <Grid key={product.id} item xs={12} sm={6} md={4}>
-                {/* 👈 5. העברת ה-userRole והפונקציה לרענון הקטלוג לאחר מחיקה מהירה בכרטיס המוצר */}
                 <ProductCard
                   product={product}
                   userRole={user?.role}
@@ -212,7 +210,6 @@ function App() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f7f9f6', pb: 8 }}>
-      {/* 👈 6. עדכון ה-Header עם ה-Props החדשים שמאפשרים תמיכה בכניסה לפאנל האדמין */}
       <Header
         cartItemsCount={cartItemsCount}
         userRole={user?.role}
