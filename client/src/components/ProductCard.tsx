@@ -1,17 +1,16 @@
 import { useState } from 'react';
-import { 
-  Card, 
-  CardMedia, 
-  CardContent, 
-  CardActions, 
-  Typography, 
-  Button, 
-  Stack, 
+import {
+  Card,
+  CardMedia,
+  CardContent,
+  CardActions,
+  Typography,
+  Button,
+  Stack,
   Chip,
-  MenuItem,
-  TextField
+  IconButton
 } from '@mui/material';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Trash2 } from 'lucide-react';
 import axios from 'axios';
 
 export type Product = {
@@ -26,10 +25,12 @@ export type Product = {
 
 type ProductCardProps = {
   product: Product;
-  onAddToCartSuccess?: () => void; // פונקציה שתופעל כדי לעדכן את העגלה למעלה אחרי ההוספה
+  userRole?: string; 
+  onAddToCartSuccess?: () => void;
+  onDeleteProductSuccess?: () => void;
 };
 
-export function ProductCard({ product, onAddToCartSuccess }: ProductCardProps) {
+export function ProductCard({ product, userRole, onAddToCartSuccess, onDeleteProductSuccess }: ProductCardProps) {
   const [quantity, setQuantity] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const isOutOfStock = product.stock === 0;
@@ -37,16 +38,15 @@ export function ProductCard({ product, onAddToCartSuccess }: ProductCardProps) {
   const handleAddToCart = async () => {
     setIsSubmitting(true);
     try {
-      // שליחת הבקשה ל-NestJS API החדש שלנו
       await axios.post('http://127.0.0.1:3000/cart/add', {
         productId: product.id,
         quantity: quantity
       });
-      
+
       alert(`התווסף לעגלה: ${quantity} יחידות של ${product.name}!`);
-      
+
       if (onAddToCartSuccess) {
-        onAddToCartSuccess(); // קריאה לרענון מונה העגלה ב-Header
+        onAddToCartSuccess();
       }
     } catch (error: any) {
       alert(error.response?.data?.message || 'שגיאה בהוספת המוצר לעגלה');
@@ -55,14 +55,30 @@ export function ProductCard({ product, onAddToCartSuccess }: ProductCardProps) {
     }
   };
 
+  //  אפשרות מחיקה מהירה ישירות מהחנות עבור האדמין
+  const handleDeleteProduct = async () => {
+    if (window.confirm(`האם אתה בטוח שברצונך למחוק את ${product.name} מהקטלוג?`)) {
+      try {
+        await axios.delete(`http://127.0.0.1:3000/products/${product.id}`);
+        alert('המוצר נמחק בהצלחה');
+        if (onDeleteProductSuccess) {
+          onDeleteProductSuccess();
+        }
+      } catch (error: any) {
+        alert(error.response?.data?.message || 'שגיאה במחיקת המוצר');
+      }
+    }
+  };
+
   return (
-    <Card 
-      sx={{ 
-        height: '100%', 
+    <Card
+      sx={{
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         borderRadius: 3,
         boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        position: 'relative', // 👈 נחוץ עבור מיקום כפתור המחיקה הצף
         transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
         '&:hover': {
           transform: 'translateY(-4px)',
@@ -70,6 +86,25 @@ export function ProductCard({ product, onAddToCartSuccess }: ProductCardProps) {
         }
       }}
     >
+      {/*  אם המשתמש הוא מנהל, נציג לו כפתור מחיקה מהיר צף על המוצר */}
+      {userRole === 'admin' && (
+        <IconButton
+          color="error"
+          onClick={handleDeleteProduct}
+          sx={{
+            position: 'absolute',
+            top: 12,
+            left: 12, // ממוקם בצד שמאל (הצד ההפוך מהתגיות)
+            bgcolor: 'rgba(255, 255, 255, 0.9)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            zIndex: 5,
+            '&:hover': { bgcolor: '#fff' }
+          }}
+        >
+          <Trash2 size={18} />
+        </IconButton>
+      )}
+
       <CardMedia
         component="img"
         height="240"
@@ -82,10 +117,10 @@ export function ProductCard({ product, onAddToCartSuccess }: ProductCardProps) {
           <Typography variant="h6" component="h3" fontWeight={700} sx={{ lineHeight: 1.2 }}>
             {product.name}
           </Typography>
-          <Chip 
-            label={`₪${Number(product.price).toFixed(2)}`} 
-            color="success" 
-            size="small" 
+          <Chip
+            label={`₪${Number(product.price).toFixed(2)}`}
+            color="success"
+            size="small"
             sx={{ fontWeight: 600, borderRadius: 1.5 }}
           />
         </Stack>
@@ -95,79 +130,74 @@ export function ProductCard({ product, onAddToCartSuccess }: ProductCardProps) {
         </Typography>
 
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 'auto', pt: 1 }}>
-          <Chip 
-            label={isOutOfStock ? "אזל מהמלאי" : `${product.stock} יחידות במלאי`} 
-            color={isOutOfStock ? "error" : "default"} 
-            size="small" 
+          <Chip
+            label={isOutOfStock ? "אזל מהמלאי" : `${product.stock} יחידות במלאי`}
+            color={isOutOfStock ? "error" : "default"}
+            size="small"
             variant="outlined"
           />
-          
-        {/* בחירת כמות משולבת: כפתורים + הקלדה חופשית גמישה */}
-        {!isOutOfStock && (
-        <Stack direction="row" alignItems="center" sx={{ bgcolor: '#f4f6f4', borderRadius: 2, p: 0.5 }}>
-            {/* כפתור מינוס */}
-            <Button
-            size="small"
-            onClick={() => setQuantity((prev) => Math.max(1, Number(prev) - 1))}
-            disabled={Number(quantity) <= 1}
-            sx={{ minWidth: 32, p: 0.5, fontWeight: 'bold', color: '#2e7d32' }}
-            >
-            -
-            </Button>
-            
-            {/* שדה הקלדה חופשית גמיש - מאפשר מחיקה זמנית */}
-            <input
+
+          {!isOutOfStock && (
+            <Stack direction="row" alignItems="center" sx={{ bgcolor: '#f4f6f4', borderRadius: 2, p: 0.5 }}>
+              <Button
+                size="small"
+                onClick={() => setQuantity((prev) => Math.max(1, Number(prev) - 1))}
+                disabled={Number(quantity) <= 1}
+                sx={{ minWidth: 32, p: 0.5, fontWeight: 'bold', color: '#2e7d32' }}
+              >
+                -
+              </Button>
+
+              <input
                 type="number"
-                min="1" // <-- חוסם את החץ המובן של הדפדפן מלרדת מתחת ל-1
-                max={product.stock} // <-- חוסם את החץ המובנה של הדפדפן מלעבור את המלאי
+                min="1"
+                max={product.stock}
                 value={quantity === 0 ? '' : quantity}
                 onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '') {
+                  const val = e.target.value;
+                  if (val === '') {
                     setQuantity(0);
                     return;
-                    }
-                    const numVal = Number(val);
-                    if (numVal <= product.stock) {
+                  }
+                  const numVal = Number(val);
+                  if (numVal <= product.stock) {
                     setQuantity(numVal);
-                    } else {
+                  } else {
                     setQuantity(product.stock);
-                    }
+                  }
                 }}
                 onBlur={() => {
-                    if (quantity < 1) {
+                  if (quantity < 1) {
                     setQuantity(1);
-                    }
+                  }
                 }}
                 style={{
-                    width: '55px', // הגדלתי מעט ל-55px כדי שיהיה מקום גם למספר וגם לחצים בצד
-                    textAlign: 'center',
-                    border: 'none',
-                    background: 'transparent',
-                    fontSize: '1rem',
-                    fontWeight: 600,
-                    outline: 'none',
-                    // מחקנו את ה-Appearance כדי שהחצים יחזרו להופיע!
+                  width: '55px',
+                  textAlign: 'center',
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  outline: 'none',
                 }}
-            />
+              />
 
-            {/* כפתור פלוס */}
-            <Button
-            size="small"
-            onClick={() => setQuantity((prev) => Math.min(product.stock, Number(prev) + 1))}
-            disabled={Number(quantity) >= product.stock}
-            sx={{ minWidth: 32, p: 0.5, fontWeight: 'bold', color: '#2e7d32' }}
-            >
-            +
-            </Button>
-        </Stack>
-        )}
+              <Button
+                size="small"
+                onClick={() => setQuantity((prev) => Math.min(product.stock, Number(prev) + 1))}
+                disabled={Number(quantity) >= product.stock}
+                sx={{ minWidth: 32, p: 0.5, fontWeight: 'bold', color: '#2e7d32' }}
+              >
+                +
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </CardContent>
       <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
-        <Button 
-          fullWidth 
-          variant="contained" 
+        <Button
+          fullWidth
+          variant="contained"
           color="success"
           disabled={isOutOfStock || isSubmitting}
           onClick={handleAddToCart}

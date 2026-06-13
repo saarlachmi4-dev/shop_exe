@@ -82,6 +82,24 @@ export class CartsService {
     return this.getOrCreateCart(userId);
   }
 
+  async clearCart(userId: number) {
+    // 1. מוצאים את העגלה של המשתמש יחד עם הפריטים שלה והמוצרים שלה
+    const cart = await this.cartRepository.findOne({
+      where: { user: { id: userId } },
+      relations: ['items', 'items.product'],
+    });
+
+    if (!cart || !cart.items || cart.items.length === 0) {
+      return { message: 'העגלה כבר ריקה' };
+    }
+
+    // 2. מחיקת כל הפריטים מתוך טבלת ה-CartItem
+    // (בהנחה שיש לך קשר מסוג Cascade או שאתה מוחק ידנית דרך ה-cartItemRepository)
+    await this.cartItemRepository.delete({ cart: { id: cart.id } });
+
+    return { message: 'העגלה רוקנה בהצלחה והמלאי עודכן!' };
+  }
+
   // עדכון כמות של פריט ספציפי מתוך העגלה (בזמן אמת)
     async updateItemQuantity(userId: number, cartItemId: number, newQuantity: number) {
     if (newQuantity <= 0) {

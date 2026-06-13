@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ProductsService } from './products.service.js';
-import { ProductsController } from './products.controller.js';
-import { Product } from '../entities/product.entity.js';
+import { AuthModule } from '../auth/auth.module';
+import { Product } from '../entities/product.entity';
+import { ProductsController } from './products.controller';
+import { ProductsService } from './products.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product])], // רישום הישות עבור המודול הזה
+  imports: [TypeOrmModule.forFeature([Product]), AuthModule],
   controllers: [ProductsController],
   providers: [ProductsService],
-  exports: [ProductsService], // אם מודולים אחרים (כמו עגלה) יצטרכו לבדוק מוצרים
+  exports: [ProductsService],
 })
 export class ProductsModule {}

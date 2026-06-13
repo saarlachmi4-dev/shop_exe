@@ -2,10 +2,15 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne, One
 import { Cart } from './cart.entity.js';
 import { Order } from './order.entity.js';
 
+export enum UserRole {
+  USER = 'user',
+  ADMIN = 'admin',
+}
+
 @Entity('users')
-export class User { // <-- ודא שכתוב בדיוק export class User
+export class User {
   @PrimaryGeneratedColumn()
-  id!: number; 
+  id!: number;
 
   @Column({ unique: true })
   email!: string;
@@ -16,8 +21,8 @@ export class User { // <-- ודא שכתוב בדיוק export class User
   @Column()
   name!: string;
 
-  @Column({ type: 'enum', enum: ['user', 'admin'], default: 'user' })
-  role!: string;
+  @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
+  role!: UserRole;
 
   @CreateDateColumn()
   createdAt!: Date;

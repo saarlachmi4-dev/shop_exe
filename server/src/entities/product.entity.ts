@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
-import { OrderItem } from './order-item.entity.js'; // <-- ודא שהנתיב ל-OrderItem נכון
+import { OrderItem } from './order-item.entity.js';
 
 @Entity('products')
 export class Product {
@@ -20,6 +20,9 @@ export class Product {
 
   @Column()
   imageUrl!: string;
+
+  @Column({ default: true })
+  isActive!: boolean;
 
   @Column({ type: 'varchar', nullable: true, default: 'רב-עונתי' })
   season!: string;
