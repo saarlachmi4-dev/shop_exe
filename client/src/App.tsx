@@ -78,7 +78,7 @@ function App() {
       }
       void initData();
     }
-  }, [user, view]); // 👈 הוספת view לפה גורמת ל-React להקשיב לכל שינוי מסך!
+  }, [user, view]); 
 
   const handleRefreshAll = async () => {
     await Promise.all([loadProducts(), loadCart()]);
@@ -92,11 +92,25 @@ function App() {
     setUser(loggedInUser);
   };
 
-  // מנוע הסינון
+  // מנוע הסינון והמיון המשולב - מאפשר חיפוש טקסטואלי גמיש וסינון עונות מתקדם
   const filteredAndSortedProducts = products
     .filter((product) => {
+      // 1. בדיקת חיפוש טקסטואלי
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesSeason = seasonFilter === 'all' || product.season === seasonFilter;
+      
+      // 2. בדיקת סינון עונות גמישה
+      if (seasonFilter === 'all') {
+        return matchesSearch; // אם נבחר "כל העונות", מספיק שהחיפוש יתאים
+      }
+
+      const productSeason = product.season || '';
+      
+      // בודק האם ערך העונה של המוצר שווה לבחירה, או מוכל בה (למשל "קיץ" מוכל בתוך "שתיל קיץ")
+      const matchesSeason = 
+        productSeason === seasonFilter || 
+        seasonFilter.includes(productSeason) ||
+        productSeason.includes(seasonFilter.replace('שתיל ', ''));
+
       return matchesSearch && matchesSeason;
     })
     .sort((a, b) => {
